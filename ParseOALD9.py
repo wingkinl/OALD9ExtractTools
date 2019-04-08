@@ -6,10 +6,10 @@ import glob
 from bs4 import BeautifulSoup
 #import html5lib
 import lxml
+import copy
 
 #inputParser = "html5lib"
 inputParser = "lxml"
-outputParser = "lxml"
 inputDir = r"C:\OALD9_Out"
 outputDir = r"C:\OALD9_Final"
 logFile = r"OALD9ParserLog.txt"
@@ -23,166 +23,173 @@ def AddLog(text):
 
 class OALDEntryParser:
     def __init__(self):
-        self.result = ""
         self._curBlockNum = 0
-        self._bsOut = BeautifulSoup(features=outputParser)
     
-    def _AddOutputElemEx(self, out_container, tag, class_name = ""):
-        if out_container is None:
-            print(f"invalid out_container for tag {tag} class {class_name}!")
+    def _AddOutputElemEx(self, container, tag, class_name = ""):
+        if container is None:
+            print(f"invalid container for tag {tag} class {class_name}!")
             return None
         newElem = self._bsOut.new_tag(tag)
         if class_name:
             newElem['class'] = class_name
-        out_container.append(newElem)
+        container.append(newElem)
         return newElem
 
-    def _ParseAddOutputElem(self, elem, out_container, tagName, useClassName = True):
-        newElem = self._AddOutputElemEx(out_container, tagName, elem.name if useClassName else "")
-        if (elem.string is not None):
-            newElem.string = elem.string
-        newContainer = newElem
-        newTagName = "span"
-        for child in elem.children:
-            if child.name == 'span':
-                newTagName = "span"
-                useClassName = False
-            elif child.name == 'img':
-                newElem = self._AddOutputElemEx(newContainer, child.name)
-                newElem.attrs = child.attrs
+    def _ParseConvertElem(self, elem, tagName):
+        if elem.attrs:
+            elem.attrs.clear()
+        if elem.name == "ref":
+            elem['href'] = f"entry://{elem.string}"
+        if (elem.name != tagName):
+            elem['class'] = elem.name
+            elem.name = tagName
+        for nn in range(len(elem.contents)-1, -1, -1):
+            child = elem.contents[nn]
+            removeChild = False
+            newTagName = "span"
+            if (child.name is None):
                 continue
+            elif child.name == 'span':
+                pass
+            elif (child.name == 'img'):
+                newTagName = child.name
             elif child.name == 'top-g':
-                newContainer = self._AddOutputElemEx(newContainer, 'div', 'top-container')
+                self._ParseConvertElem(child, 'span')
+                newElem = self._bsOut.new_tag('div')
+                newElem['class'] = 'top-container'
+                newElem.append(copy.copy(child))
+                child.replace_with(newElem)
+                continue
             elif child.name == 'sn-gs':
-                newTagName = "span"
+                pass
             elif child.name == 'sn-g':
                 newTagName = "li"
             elif child.name == 'def':
-                newTagName = "span"
+                pass
             elif child.name == 'ndv':
                 # see "A noun", in the [scale] of C
-                newTagName = "span"
+                pass
             elif child.name == 'cl':
                 # see "A noun", [A in/for] Biology
                 # TODO, set as "strong" in CSS
-                newTagName = "span"
+                pass
             elif child.name == 'gl':
                 # see "A noun", all through high school
-                newTagName = "span"
+                pass
             elif child.name == 'rx-g':
                 # see "A noun", He had straight A's
-                newTagName = "span"
+                pass
             elif child.name == 'xr-gs':
                 # see "A noun", SEE ALSO
-                newTagName = "span"
+                pass
             elif child.name == 'esc':
                 # see "A noun", SEE ALSO, no example on web
                 # TODO make text capitalize in CSS
-                newTagName = "span"
+                pass
             elif child.name == 'ref':
                 newTagName = "a"
             elif child.name == 'xr-g':
                 # in "A noun" see also, link
-                newTagName = "span"
+                pass
             elif child.name == 'xh':
                 # in "A noun" see also, link
-                newTagName = "span"
+                pass
             elif child.name == 'xw':
                 # in "aback" see also, link
-                newTagName = "span"
+                pass
             elif child.name == "ei":
                 # see "a indefinite article", [one] before some numbers
-                newTagName = "span"
+                pass
             elif child.name == "ebi":
                 # see "George Abbott ", The Boys from Syracuse
-                newTagName = "span"
+                pass
             elif child.name == 'idm-gs':
                 # idioms
-                newTagName = "span"
+                pass
             elif child.name == 'idm-g':
                 # idioms
-                newTagName = "span"
+                pass
             elif child.name == 'idm-l':
                 # idioms
-                newTagName = "span"
+                pass
             elif child.name == 'idm':
                 # idioms
-                newTagName = "span"
+                pass
             elif child.name == 'sn-gs':
                 # idioms
-                newTagName = "span"
+                pass
             elif child.name == 'sn-g':
                 # idioms
-                newTagName = "span"
+                pass
             elif child.name == 'res-g':
-                newTagName = "span"
+                pass
             elif child.name == 'dis-g':
                 # TODO, wrap, see "abbreviated"
-                newTagName = "span"
+                pass
             elif child.name == 'dtxt':
-                newTagName = "span"
+                pass
             elif child.name == 'x-gs':
-                newTagName = "span"
+                pass
             elif child.name == 'x-g':
-                newTagName = "span"
+                pass
             elif child.name == 'x':
-                newTagName = "span"
+                pass
             elif child.name == 'xs':
-                newTagName = "span"
+                pass
             elif child.name == 'xw':
                 # see "aboard", synonym "on board"
-                newTagName = "span"
+                pass
             elif child.name == 'h':
                 newTagName = "h2"
             elif child.name == 'pos-g':
-                newTagName = "span"
+                pass
             elif child.name == 'pos':
-                newTagName = "span"
+                pass
             elif child.name == 'pron-gs':
                 newTagName = "div"
             elif child.name == 'pron-g':
-                newTagName = "span"
+                pass
             elif (child.name == 'blue') or (child.name == 'red'):
-                newTagName = "span"
+                pass
             elif child.name == 'phon':
-                newTagName = "span"
+                pass
             elif child.name == 'v-gs':
                 # TODO, wrap
-                newTagName = "span"
+                pass
             elif child.name == 'v-g':
-                newTagName = "span"
+                pass
             elif child.name == 'v':
                 # TODO make text capitalize in CSS
-                newTagName = "span"
+                pass
             elif child.name == 'st':
-                newTagName = "span"
+                pass
             elif child.name == 'if-gs':
-                newTagName = "span"
+                pass
             elif child.name == 'if-g':
-                newTagName = "span"
+                pass
             elif child.name == 'if':
-                newTagName = "span"
+                pass
             elif child.name == 'un':
-                newTagName = "span"
+                pass
             elif child.name == 'eb':
-                newTagName = "span"
+                pass
             elif child.name == 'label-g':
-                newTagName = "span"
+                pass
             elif child.name == 'reg':
-                newTagName = "span"
+                pass
             elif child.name == 'gram-g':
-                newTagName = "span"
+                pass
             elif child.name == 'gram':
-                newTagName = "span"
+                pass
             elif child.name == 'geo':   # geographic
-                newTagName = "span"
+                pass
             elif child.name == 'ptl':
-                newTagName = "span"
+                pass
             elif child.name == 'subj':
-                newTagName = "span"
+                pass
             elif child.name == 'pv-gs':
                 # phrasal verbs
-                newTagName = "span"
+                pass
             elif child.name == 'pv-g':
                 # phrasal verbs
                 newTagName = "div"
@@ -191,74 +198,75 @@ class OALDEntryParser:
                 newTagName = "div"
             elif child.name == "use":
                 # see -able, "in adjectives"
-                newTagName = "span"
+                pass
             elif child.name == 'or':
                 # see abide, "old use or formal"
-                continue
+                removeChild = True
             elif child.name == 'collapse':
                 # verb forms heading collapse/expand
-                newTagName = "span"
+                pass
             elif child.name == 'pnc_heading':
                 # verb forms heading
-                continue
+                pass
             elif child.name == 'pvp-g':
                 # can't find example
-                newTagName = "div"
+                pass
             elif child.name == 'cf':
                 # see "acclaim"
-                newTagName = "span"
+                pass
             elif child.name == 'exp':
                 # see "acclaim"
-                newTagName = "span"
+                pass
             elif child.name == 'sub':
                 # see "acetylene", chemical element symbol subscript
-                newTagName = "span"
+                pass
             elif child.name == 'pv':
                 # see phrasal verb "add in"
                 newTagName = "h4"
             elif child.name == 'pv-l':
                 # appears in phrasal verb "add up" but found no example on web
-                newTagName = "div"
+                pass
             elif child.name == 'z':
                 # see phrasal verb "add up"
-                newTagName = "span"
+                pass
             elif child.name == 'hm':
                 # see "agape", superscript for words of different meanings
-                continue
+                removeChild = True
             elif child.name == 'audio':
-                continue
+                removeChild = True
             elif child.name == 'topic':
                 # see "aardvark"
-                continue
+                removeChild = True
             elif child.name == 'infl-g':
-                continue
+                removeChild = True
             elif child.name == 'cset':
-                continue
+                removeChild = True
             elif child.name == 'pracpron':
-                continue
+                removeChild = True
             elif child.name == 'aref':
-                continue
+                removeChild = True
             elif child.name == 'lg:tabbed':
-                continue
-            elif child.name is None:
-                continue
+                removeChild = True
             else:
                 AddLog(f"Unexpected tag '{child.name}' in {elem.name} of block {self._curBlockNum}")
-                continue
-            newChildElem = self._ParseAddOutputElem(child, newContainer, newTagName, useClassName)
-            if child.name == 'ref':
-                newChildElem['href'] = f"entry://{child.string}"
-        return newElem
+                removeChild = True
+            if removeChild:
+                child.decompose()
+            else:
+                self._ParseConvertElem(child, newTagName)
 
-    def _ParseEntry(self, entry):
+    def _ConvertEntry(self, entry):
         #hgs = entry.findAll('h-g')
         hgsCount = 0
-        for child in entry.children:
-            if (child.name == 'guide_info') or (child.name is None):
+        for nn in range(len(entry.contents)-1, -1, -1):
+            child = entry.contents[nn]
+            if (child.name is None):
                 continue
+            if (child.name == 'guide_info'):
+                child.decompose()
             elif child.name == 'h-g':
                 hgsCount += 1
-                self._ParseAddOutputElem(child, self._bsOut, "ol")
+                self._ParseConvertElem(child, "ol")
             else:
                 AddLog(f"Unexpected tag '{child.name}' in entry of block {self._curBlockNum}")
                 continue
@@ -267,35 +275,33 @@ class OALDEntryParser:
         return hgsCount == 1
         
     def ConvertBlock(self, block):
-        self._bsOut = BeautifulSoup(features=outputParser)
         self._curBlockNum = block['num']
         #print(str(block))
         entriesCount = 0
-        self.result = ""
         # in case we miss anything else, use for loop instead
         #entries = block.findAll('entry')
         #entriesCount = len(entries)
-        for child in block.children:
-            if (child.name == 'link') or (child.name is None):
+        for nn in range(len(block.contents)-1, -1, -1):
+            child = block.contents[nn]
+            if (child.name is None):
                 continue
+            if (child.name == 'link'):
+                child.decompose()
             elif child.name == 'entry':
                 entriesCount += 1
-                self._ParseEntry(child)
+                self._ConvertEntry(child)
             else:
                 AddLog(f"Unexpected tag '{child.name}' in block {self._curBlockNum}")
                 continue
-        if entriesCount != 1:
+        if entriesCount > 1:
             AddLog(f"Found {entriesCount} entries in block {self._curBlockNum}")
-        self.result = str(self._bsOut)
-        return entriesCount == 1
     
     def Convert(self, contents, fileOut):
-        soup = BeautifulSoup(contents, inputParser)
+        self._bsOut = BeautifulSoup(contents, inputParser)
         with open(fileOut, "w") as fOutput:
-            for block in soup.findAll("lg:block"):
-                if len(block.contents) > 0:
-                    if self.ConvertBlock(block):
-                        fOutput.write(self.result)
+            for block in self._bsOut.findAll("lg:block"):
+                self.ConvertBlock(block)
+            fOutput.write(str(self._bsOut))
 
 fileCount = 0
 if not os.path.exists(outputDir):
