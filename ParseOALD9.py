@@ -46,6 +46,7 @@ class OALDEntryParser:
         for child in elem.children:
             if child.name == 'span':
                 newTagName = "span"
+                useClassName = False
             elif child.name == 'img':
                 newElem = self._AddOutputElemEx(newContainer, child.name)
                 newElem.attrs = child.attrs
@@ -76,7 +77,7 @@ class OALDEntryParser:
                 newTagName = "span"
             elif child.name == 'esc':
                 # see "A noun", SEE ALSO, no example on web
-                # TODO make text all capitalize
+                # TODO make text capitalize in CSS
                 newTagName = "span"
             elif child.name == 'ref':
                 newTagName = "a"
@@ -114,8 +115,7 @@ class OALDEntryParser:
                 # idioms
                 newTagName = "span"
             elif child.name == 'res-g':
-                #todo
-                pass
+                newTagName = "span"
             elif child.name == 'dis-g':
                 # TODO, wrap, see "abbreviated"
                 newTagName = "span"
@@ -152,9 +152,8 @@ class OALDEntryParser:
             elif child.name == 'v-g':
                 newTagName = "span"
             elif child.name == 'v':
-                newContainer = self._AddOutputElemEx(newContainer, 'span', child.name)
-                newTagName = "strong"
-                useClassName = False
+                # TODO make text capitalize in CSS
+                newTagName = "span"
             elif child.name == 'st':
                 newTagName = "span"
             elif child.name == 'if-gs':
@@ -267,7 +266,8 @@ class OALDEntryParser:
             AddLog(f"Found {hgsCount} h-g in block {self._curBlockNum}")
         return hgsCount == 1
         
-    def Convert(self, block):
+    def ConvertBlock(self, block):
+        self._bsOut = BeautifulSoup(features=outputParser)
         self._curBlockNum = block['num']
         #print(str(block))
         entriesCount = 0
@@ -288,7 +288,14 @@ class OALDEntryParser:
             AddLog(f"Found {entriesCount} entries in block {self._curBlockNum}")
         self.result = str(self._bsOut)
         return entriesCount == 1
-
+    
+    def Convert(self, contents, fileOut):
+        soup = BeautifulSoup(contents, inputParser)
+        with open(fileOut, "w") as fOutput:
+            for block in soup.findAll("lg:block"):
+                if len(block.contents) > 0:
+                    if self.ConvertBlock(block):
+                        fOutput.write(self.result)
 
 fileCount = 0
 if not os.path.exists(outputDir):
@@ -298,16 +305,14 @@ totalFileCount = len(fList)
 for file in fList:
     with open(file) as fInput:
         fileCount += 1
-        os.system(f"title Parsing {os.path.basename(file)} ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}%")
+        fileName = os.path.basename(file)
+        os.system(f"title Parsing {fileName} ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}%")
         curInputFile = file
         #print(f'File {fileCount}: {file}')
         contents = fInput.read()
-        soup = BeautifulSoup(contents, inputParser)
-        with open(outputDir + "\\" + os.path.basename(file) + ".html", "w") as fOutput:
-            for block in soup.findAll("lg:block"):
-                if len(block.contents) > 0:
-                    parser = OALDEntryParser()
-                    if parser.Convert(block):
-                        fOutput.write(parser.result)
-                        continue
+        parser = OALDEntryParser()
+        fileOut = outputDir + "\\" + fileName + ".html"
+        parser.Convert(contents, fileOut)
+
+
 
