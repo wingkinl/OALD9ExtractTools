@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CheatTable CheatEngineTableVersion="28">
+  <CheatEntries>
+    <CheatEntry>
+      <ID>0</ID>
+      <Description>"Auto Assemble script"</Description>
+      <LastState Activated="1"/>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>define(FILE_APPEND_DATA,4)
+define(OPEN_ALWAYS,4)
+define(FILE_ATTRIBUTE_NORMAL,0x00000080)
+define(FILE_END,2)
+
+globalalloc(html_str, 4)
+globalalloc(html_len, 4)
+globalalloc(html_cnt, 4)
+globalalloc(file_bytes, 4)
+globalalloc(html_filedir, 255)
+globalalloc(html_filepath, 255)
+globalalloc(html_pathnumaddr, 4)
+globalalloc(html_pathnumformat, 20)
+
+html_str:
+dd 0
+
+html_len:
+dd 0
+
+html_cnt:
+dd 0
+
+html_filedir:
+db 'C:\OALD9_Out\'
+
+html_filepath:
+db 0
+
+html_pathnumaddr:
+dd 0
+
+html_pathnumformat:
+db '%06d.xml', 0
+
+/*
+// lua is slow, so this is not used for now
+{$lua}
+function myfunction(straddr)
+  --showMessage('html: '..straddr)
+  len = readInteger('html_len')
+  --showMessage('len: '..len)
+  --str = readString(straddr, len)
+  --showMessage('str: '..str)
+  --showMessage('len of str is: '..string.len(str))
+  cnt = readInteger('html_cnt')
+  cnt = cnt + 1
+  writeInteger('html_cnt', cnt)
+  filePath = string.format("C:\\OALD\\%d.html", cnt)
+  writeRegionToFile(filePath, straddr, len)
+end
+{$asm}
+
+loadlibrary(luaclient-i386.dll)
+luacall(openLuaServer('CELUASERVER'))
+
+CELUA_ServerName:
+db 'CELUASERVER',0
+
+alloc(str_myfunction,32)
+alloc(functionid,4)
+
+str_myfunction:
+db 'return myfunction(parameter)',0
+*/
+
+[ENABLE]
+//code from here to '[DISABLE]' will be used to enable the cheat
+alloc(newmem,2048)
+alloc(hFile,4)
+label(IncNumFileCheck)
+label(IncNumWriteFile)
+label(DoWriteFile)
+label(Cleanup)
+label(returnhere)
+label(originalcode)
+label(exit)
+
+newmem: //this is allocated memory, you have read,write,execute access
+//place your code here
+mov [html_str],esp
+push edx
+push ecx
+push eax
+
+mov edx, [html_str]
+sub edx, 28
+mov edx, [edx]
+mov [html_str],edx
+push [html_str]
+call kernel32.lstrlenA // stdcall, no cleanup
+mov [html_len], eax
+
+// check if this is the first time
+cmp [html_cnt], 0
+jne IncNumWriteFile
+
+push html_filedir
+push html_filepath
+call kernel32.lstrcpyA
+
+push 0
+push html_filepath
+call kernel32.CreateDirectoryA
+
+push html_filepath
+call kernel32.lstrlenA
+
+lea edx,[html_filepath]
+add edx,eax
+mov [html_pathnumaddr], edx
+
+// find the next available number
+mov [html_cnt], 1
+
+IncNumFileCheck:
+push [html_cnt]
+push html_pathnumformat
+push [html_pathnumaddr]
+call user32.wsprintfA
+
+push html_filepath
+call kernel32.GetFileAttributesA
+cmp eax, 0xFFFFFFFF
+je DoWriteFile
+mov eax, [html_cnt]
+inc eax
+mov [html_cnt], eax
+jmp IncNumFileCheck
+
+IncNumWriteFile:
+mov eax, [html_cnt]
+inc eax
+mov [html_cnt], eax
+
+push [html_cnt]
+push html_pathnumformat
+push [html_pathnumaddr]
+call user32.wsprintfA
+
+DoWriteFile:
+//push [html_str]
+//push str_myfunction
+//call CELUA_ExecuteFunction
+push 0
+push FILE_ATTRIBUTE_NORMAL
+push OPEN_ALWAYS
+push 0
+push 0
+push FILE_APPEND_DATA
+push html_filepath
+call kernel32.CreateFileA
+test eax, eax
+je Cleanup
+
+mov [hFile], eax
+
+push FILE_END
+push 0
+push 0
+push [hFile]
+call kernel32.SetFilePointer
+
+push 0
+push file_bytes
+push [html_len]
+push [html_str]
+push [hFile]
+call kernel32.WriteFile
+
+push [hFile]
+call kernel32.CloseHandle
+
+
+Cleanup:
+pop eax
+pop ecx
+pop edx
+
+originalcode:
+mov [ebp-04],eax
+push 00
+
+exit:
+jmp returnhere
+
+"OALD9.exe"+32127:
+jmp newmem
+returnhere:
+
+
+
+
+[DISABLE]
+//code from here till the end of the code will be used to disable the cheat
+dealloc(newmem)
+"OALD9.exe"+32127:
+mov [ebp-04],eax
+push 00
+//Alt: db 89 45 FC 6A 00
+</AssemblerScript>
+    </CheatEntry>
+  </CheatEntries>
+  <UserdefinedSymbols>
+    <SymbolEntry>
+      <Name>html_str</Name>
+      <Address>04330000</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>html_len</Name>
+      <Address>04330010</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>html_cnt</Name>
+      <Address>04330020</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>file_bytes</Name>
+      <Address>04330030</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>html_filedir</Name>
+      <Address>04330040</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>html_filepath</Name>
+      <Address>04330140</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>html_pathnumaddr</Name>
+      <Address>04330240</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>html_pathnumformat</Name>
+      <Address>04330250</Address>
+    </SymbolEntry>
+  </UserdefinedSymbols>
+</CheatTable>
