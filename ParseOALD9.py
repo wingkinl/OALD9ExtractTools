@@ -39,7 +39,7 @@ class OALDEntryParser:
 
     def _ParseAddOutputElem(self, elem, out_container, tagName, useClassName = True):
         newElem = self._AddOutputElemEx(out_container, tagName, elem.name if useClassName else "")
-        if elem.string is not None:
+        if (elem.string is not None):
             newElem.string = elem.string
         newContainer = newElem
         newTagName = "span"
@@ -51,22 +51,86 @@ class OALDEntryParser:
                 newElem.attrs = child.attrs
                 continue
             elif child.name == 'top-g':
-                top_container = self._AddOutputElemEx(newContainer, 'div', 'top-container')
-                newContainer = top_container
+                newContainer = self._AddOutputElemEx(newContainer, 'div', 'top-container')
             elif child.name == 'sn-gs':
-                #todo
-                continue
+                newTagName = "span"
+            elif child.name == 'sn-g':
+                newTagName = "li"
+            elif child.name == 'def':
+                newTagName = "span"
+            elif child.name == 'ndv':
+                # see "A noun", in the [scale] of C
+                newTagName = "span"
+            elif child.name == 'cl':
+                # see "A noun", [A in/for] Biology
+                # TODO, set as "strong" in CSS
+                newTagName = "span"
+            elif child.name == 'gl':
+                # see "A noun", all through high school
+                newTagName = "span"
+            elif child.name == 'rx-g':
+                # see "A noun", He had straight A's
+                newTagName = "span"
+            elif child.name == 'xr-gs':
+                # see "A noun", SEE ALSO
+                newTagName = "span"
+            elif child.name == 'esc':
+                # see "A noun", SEE ALSO, no example on web
+                # TODO make text all capitalize
+                newTagName = "span"
+            elif child.name == 'ref':
+                newTagName = "a"
+            elif child.name == 'xr-g':
+                # in "A noun" see also, link
+                newTagName = "span"
+            elif child.name == 'xh':
+                # in "A noun" see also, link
+                newTagName = "span"
+            elif child.name == 'xw':
+                # in "aback" see also, link
+                newTagName = "span"
+            elif child.name == "ei":
+                # see "a indefinite article", [one] before some numbers
+                newTagName = "span"
+            elif child.name == "ebi":
+                # see "George Abbott ", The Boys from Syracuse
+                newTagName = "span"
             elif child.name == 'idm-gs':
-                #todo
-                continue
+                # idioms
+                newTagName = "span"
+            elif child.name == 'idm-g':
+                # idioms
+                newTagName = "span"
+            elif child.name == 'idm-l':
+                # idioms
+                newTagName = "span"
+            elif child.name == 'idm':
+                # idioms
+                newTagName = "span"
+            elif child.name == 'sn-gs':
+                # idioms
+                newTagName = "span"
+            elif child.name == 'sn-g':
+                # idioms
+                newTagName = "span"
             elif child.name == 'res-g':
                 #todo
-                continue
+                pass
+            elif child.name == 'dis-g':
+                # TODO, wrap, see "abbreviated"
+                newTagName = "span"
+            elif child.name == 'dtxt':
+                newTagName = "span"
             elif child.name == 'x-gs':
                 newTagName = "span"
             elif child.name == 'x-g':
                 newTagName = "span"
             elif child.name == 'x':
+                newTagName = "span"
+            elif child.name == 'xs':
+                newTagName = "span"
+            elif child.name == 'xw':
+                # see "aboard", synonym "on board"
                 newTagName = "span"
             elif child.name == 'h':
                 newTagName = "h2"
@@ -83,6 +147,7 @@ class OALDEntryParser:
             elif child.name == 'phon':
                 newTagName = "span"
             elif child.name == 'v-gs':
+                # TODO, wrap
                 newTagName = "span"
             elif child.name == 'v-g':
                 newTagName = "span"
@@ -161,6 +226,11 @@ class OALDEntryParser:
             elif child.name == 'hm':
                 # see "agape", superscript for words of different meanings
                 continue
+            elif child.name == 'audio':
+                continue
+            elif child.name == 'topic':
+                # see "aardvark"
+                continue
             elif child.name == 'infl-g':
                 continue
             elif child.name == 'cset':
@@ -176,7 +246,9 @@ class OALDEntryParser:
             else:
                 AddLog(f"Unexpected tag '{child.name}' in {elem.name} of block {self._curBlockNum}")
                 continue
-            self._ParseAddOutputElem(child, newContainer, newTagName, useClassName)
+            newChildElem = self._ParseAddOutputElem(child, newContainer, newTagName, useClassName)
+            if child.name == 'ref':
+                newChildElem['href'] = f"entry://{child.string}"
         return newElem
 
     def _ParseEntry(self, entry):
@@ -226,12 +298,12 @@ totalFileCount = len(fList)
 for file in fList:
     with open(file) as fInput:
         fileCount += 1
-        os.system(f"title Parsing {os.path.basename(file)} progress {float(fileCount)/totalFileCount*100:.1f}%")
+        os.system(f"title Parsing {os.path.basename(file)} ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}%")
         curInputFile = file
         #print(f'File {fileCount}: {file}')
         contents = fInput.read()
         soup = BeautifulSoup(contents, inputParser)
-        with open(outputDir + "\\" + os.path.basename(file), "w") as fOutput:
+        with open(outputDir + "\\" + os.path.basename(file) + ".html", "w") as fOutput:
             for block in soup.findAll("lg:block"):
                 if len(block.contents) > 0:
                     parser = OALDEntryParser()
