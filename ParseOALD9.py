@@ -1,7 +1,9 @@
 # OALD9 DVD for Windows XML Parser
-# 4/8/2019
+# 4/9/2019
 
 import os
+import re
+from shutil import copyfile
 import glob
 from bs4 import BeautifulSoup
 #import html5lib
@@ -14,6 +16,10 @@ inputDir = r"C:\OALD9_Out"
 outputDir = r"C:\OALD9_Final"
 logFile = r"OALD9ParserLog.txt"
 curInputFile = ""
+# source https://www.oxfordlearnersdictionaries.com/external/styles/interface.css?version=1.6.51
+interfaceCSS = r'styles\interface.css'
+# source: https://www.oxfordlearnersdictionaries.com/external/styles/oxford.css?version=1.6.51
+oxfordCSS = r'styles\oxford.css'
 
 def AddLog(text):
     text = curInputFile + ": " + text
@@ -25,25 +31,45 @@ class OALDEntryParser:
     def __init__(self):
         self._curBlockNum = 0
     
-    def _AddOutputElemEx(self, container, tag, class_name = ""):
-        if container is None:
-            print(f"invalid container for tag {tag} class {class_name}!")
-            return None
-        newElem = self._bsOut.new_tag(tag)
-        if class_name:
-            newElem['class'] = class_name
-        container.append(newElem)
-        return newElem
+    def _ReplaceSpecialSymbol(self, mo):
+        if mo.group(1) == '@':
+            symbol_mapping = {'a' : r'\u00E6'}
+            return symbol_mapping[mo.group(2)]
+        elif mo.group(1) == 's':
+            symbol_mapping = {'h' : r'\u2018',  # ‘
+                              'i' : r'\u2019',  # ’
+                              'n' : r'\u2014',  # —
+                              'D' : r'\u00B7',  # ·
+                              'L' : r'\u00D7'}  # ×
+            return symbol_mapping[mo.group(2)]
+        return mo.group()
+    
+    def _EscapeSpecialText(self, text):
+        # decode \@?, \s?
+        try:
+            text = re.sub(r'\\([@s])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
+        except Exception as e:
+            AddLog(f"{repr(e)} failed to replace special symbol in:'{text}'")
+        
+        # decode unicode text "\uXXXX"
+        text = text.encode().decode('unicode-escape')
+        return text
 
     def _ParseConvertElem(self, elem, tagName):
         if elem.attrs:
+            geo = ""
+            if elem.has_attr('geo'):
+                geo = elem['geo']
             elem.attrs.clear()
+            if geo:
+                elem['geo'] = geo
         if elem.name == "ref":
             elem['href'] = f"entry://{elem.string}"
         if (elem.name != tagName):
             elem['class'] = elem.name
             elem.name = tagName
-        for nn in range(len(elem.contents)-1, -1, -1):
+        childCount = len(elem.contents)
+        for nn in range(childCount-1, -1, -1):
             child = elem.contents[nn]
             removeChild = False
             newTagName = "span"
@@ -57,13 +83,19 @@ class OALDEntryParser:
                 self._ParseConvertElem(child, 'span')
                 newElem = self._bsOut.new_tag('div')
                 newElem['class'] = 'top-container'
-                newElem.append(copy.copy(child))
+                childCopy = copy.copy(child)
+                # change it to webtop-g to satisfy CSS
+                #if (elem.name == 'ol'):
+                #    childCopy['class'] = 'webtop-g'
+                newElem.append(childCopy)
                 child.replace_with(newElem)
                 continue
             elif child.name == 'sn-gs':
                 pass
             elif child.name == 'sn-g':
-                newTagName = "li"
+                # because idioms could also contain this tag, we need to exclude that
+                if (elem['class'] == 'sn-gs') and (elem.parent.name == 'ol'):
+                    newTagName = "li"
             elif child.name == 'def':
                 pass
             elif child.name == 'ndv':
@@ -71,7 +103,6 @@ class OALDEntryParser:
                 pass
             elif child.name == 'cl':
                 # see "A noun", [A in/for] Biology
-                # TODO, set as "strong" in CSS
                 pass
             elif child.name == 'gl':
                 # see "A noun", all through high school
@@ -84,7 +115,6 @@ class OALDEntryParser:
                 pass
             elif child.name == 'esc':
                 # see "A noun", SEE ALSO, no example on web
-                # TODO make text capitalize in CSS
                 pass
             elif child.name == 'ref':
                 newTagName = "a"
@@ -124,7 +154,6 @@ class OALDEntryParser:
             elif child.name == 'res-g':
                 pass
             elif child.name == 'dis-g':
-                # TODO, wrap, see "abbreviated"
                 pass
             elif child.name == 'dtxt':
                 pass
@@ -150,16 +179,16 @@ class OALDEntryParser:
             elif child.name == 'pron-g':
                 pass
             elif (child.name == 'blue') or (child.name == 'red'):
-                pass
+                prefix = self._bsOut.new_tag("span")
+                prefix['class'] = 'prefix'
+                child.wrap(prefix)
             elif child.name == 'phon':
                 pass
             elif child.name == 'v-gs':
-                # TODO, wrap
                 pass
             elif child.name == 'v-g':
                 pass
             elif child.name == 'v':
-                # TODO make text capitalize in CSS
                 pass
             elif child.name == 'st':
                 pass
@@ -298,10 +327,42 @@ class OALDEntryParser:
     
     def Convert(self, contents, fileOut):
         self._bsOut = BeautifulSoup(contents, inputParser)
-        with open(fileOut, "w") as fOutput:
+        with open(fileOut, mode="w", encoding="utf-8") as fOutput:
             for block in self._bsOut.findAll("lg:block"):
                 self.ConvertBlock(block)
-            fOutput.write(str(self._bsOut))
+            head = self._bsOut.new_tag("head")
+            meta = self._bsOut.new_tag("meta")
+            linkInterfaceCSS = self._bsOut.new_tag("link")
+            linkOxfordCSS = self._bsOut.new_tag("link")
+            linkInterfaceCSS['rel'] = 'stylesheet'
+            linkInterfaceCSS['type'] = 'text/css'
+            linkInterfaceCSS['href'] = interfaceCSS.replace('\\', '/')
+            linkOxfordCSS['rel'] = 'stylesheet'
+            linkOxfordCSS['type'] = 'text/css'
+            linkOxfordCSS['href'] = oxfordCSS.replace('\\', '/')
+            meta['charset'] = 'UTF-8'
+            head.append(meta)
+            head.append(linkInterfaceCSS)
+            head.append(linkOxfordCSS)
+            self._bsOut.body.insert_before(head)
+            #text = str(self._bsOut)
+            text = str(self._bsOut.prettify())
+            #fOutput.write(str(self._bsOut))
+            text = self._EscapeSpecialText(text)
+            # remove the redundant number after each list entry
+            rep = re.compile(r'sn-g">\s*(\d+)')
+            text = rep.sub(r'sn-g">', text)
+            fOutput.write(text)
+
+def MakeValidPath(path):
+    dir = os.path.dirname(path)
+    if not os.path.exists(dir):
+        os.mkdir(dir)
+    return path
+
+curDir = os.path.dirname(os.path.abspath(__file__))
+copyfile(curDir + "\\" + interfaceCSS, MakeValidPath(outputDir + "\\" + interfaceCSS))
+copyfile(curDir + "\\" + oxfordCSS, MakeValidPath(outputDir + "\\" + oxfordCSS))
 
 fileCount = 0
 if not os.path.exists(outputDir):
