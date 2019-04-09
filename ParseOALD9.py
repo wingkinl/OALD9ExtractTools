@@ -3,29 +3,57 @@
 
 import os
 import re
+import shutil
 from shutil import copyfile
 import glob
 from bs4 import BeautifulSoup
 #import html5lib
 import lxml
 import copy
+import configparser
+import warnings
 
 #inputParser = "html5lib"
 inputParser = "lxml"
 inputDir = r"C:\OALD9_Out"
 outputDir = r"C:\OALD9_Final"
-logFile = r"OALD9ParserLog.txt"
 curInputFile = ""
 # source https://www.oxfordlearnersdictionaries.com/external/styles/interface.css?version=1.6.51
 interfaceCSS = r'styles\interface.css'
 # source: https://www.oxfordlearnersdictionaries.com/external/styles/oxford.css?version=1.6.51
 oxfordCSS = r'styles\oxford.css'
+prettyOutput = True
+debugPrintMsg = False
+addMsgLogFile = True
+
+desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
+customDir = desktop + "\\OALD9\\"
+iniPath = customDir + r"config.ini"
+logFile = customDir + r"OALD9ParserLog.txt"
+
+config = configparser.ConfigParser()
+config.read(iniPath)
+if config.has_option('core', 'OALDOutDir'):
+    inputDir = config['core']['OALDOutDir']
+if config.has_option('core', 'OALDFinalDir'):
+    outputDir = config['core']['OALDFinalDir']
+if config.has_option('Parser', 'prettyOutput'):
+    value = config['Parser']['prettyOutput'].lower()
+    prettyOutput = value in ['true', '1']
+if config.has_option('Parser', 'debugPrintMsg'):
+    value = config['Parser']['debugPrintMsg'].lower()
+    debugPrintMsg = value in ['true', '1']
+if config.has_option('Parser', 'addMsgLogFile'):
+    value = config['Parser']['addMsgLogFile'].lower()
+    addMsgLogFile = value in ['true', '1']
 
 def AddLog(text):
     text = curInputFile + ": " + text
-    print(text)
-    #with open(logFile, "a") as file:
-    #    file.write(text)
+    if debugPrintMsg:
+        print(text)
+    if addMsgLogFile:
+        with open(logFile, "a") as file:
+            file.write(text + "\r\n")
 
 class OALDEntryParser:
     def __init__(self):
@@ -49,14 +77,21 @@ class OALDEntryParser:
         try:
             text = re.sub(r'\\([@s])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
         except Exception as e:
-            AddLog(f"{repr(e)} failed to replace special symbol in:'{text}'")
+            AddLog(f"failed to replace special symbol in '{curFileName}'\r\n\t{repr(e)}")
         
         # decode unicode text "\uXXXX"
-        text = text.encode().decode('unicode-escape')
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+            text = text.encode().decode('unicode-escape')
+            if len(w):
+                AddLog(f"failed to replace unicode in '{curFileName}'\r\n\t{str(w[-1].message)}")
         return text
 
     def _ParseConvertElem(self, elem, tagName):
         if elem.attrs:
+            # preserve the attributes for styling some tags
+            # geo for "blue"/"red"
             geo = ""
             if elem.has_attr('geo'):
                 geo = elem['geo']
@@ -345,8 +380,10 @@ class OALDEntryParser:
             head.append(linkInterfaceCSS)
             head.append(linkOxfordCSS)
             self._bsOut.body.insert_before(head)
-            #text = str(self._bsOut)
-            text = str(self._bsOut.prettify())
+            if prettyOutput:
+                text = str(self._bsOut.prettify())
+            else:
+                text = str(self._bsOut)
             #fOutput.write(str(self._bsOut))
             text = self._EscapeSpecialText(text)
             # remove the redundant number after each list entry
@@ -372,13 +409,13 @@ totalFileCount = len(fList)
 for file in fList:
     with open(file) as fInput:
         fileCount += 1
-        fileName = os.path.basename(file)
-        os.system(f"title Parsing {fileName} ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}%")
+        curFileName = os.path.basename(file)
+        os.system(f"title Parsing {curFileName} ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}%")
         curInputFile = file
         #print(f'File {fileCount}: {file}')
         contents = fInput.read()
         parser = OALDEntryParser()
-        fileOut = outputDir + "\\" + fileName + ".html"
+        fileOut = outputDir + "\\" + curFileName + ".html"
         parser.Convert(contents, fileOut)
 
 
