@@ -61,7 +61,8 @@ class OALDEntryParser:
     
     def _ReplaceSpecialSymbol(self, mo):
         if mo.group(1) == '@':
-            symbol_mapping = {'a' : r'\u00E6'}
+            symbol_mapping = {'a' : r'\u00E6',  # æ
+                              'n' : r'\u014B'}  # ŋ
             return symbol_mapping[mo.group(2)]
         elif mo.group(1) == 's':
             symbol_mapping = {'h' : r'\u2018',  # ‘
@@ -310,10 +311,11 @@ class OALDEntryParser:
             elif child.name == 'aref':
                 removeChild = True
             elif child.name == 'lg:tabbed':
-                removeChild = True
+                #removeChild = True
+                pass
             else:
                 AddLog(f"Unexpected tag '{child.name}' in {elem.name} of block {self._curBlockNum}")
-                removeChild = True
+                pass
             if removeChild:
                 child.decompose()
             else:
