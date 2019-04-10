@@ -33,17 +33,21 @@ CheckOutputFileRelaunchOALD()
     {
         checkOALDTimerOn := false
         SetTimer, CheckOALD, Off
+        SetTimer, DoMouseWheel, Off
     }
     else
     {
         checkOALDTimerOn := true
         SetTimer, CheckOALD, 3000
-        Click, down
+        SetTimer, DoMouseWheel, 10
     }
 return
 
 #q::ExitApp
 
+DoMouseWheel:
+    SendInput, {WheelDown}
+    return
 
 CheckOALD:
     Process, Exist, OALD9.exe
@@ -129,7 +133,13 @@ SendToBark(title, body)
 {
     global urlBark
     finalURL := urlBark . title . "/" . body . " at " . A_Now
-    req := ComObjCreate("WinHttp.WinHttpRequest.5.1")
-    req.Open("POST", finalURL)
-    req.Send()
+    try
+    {
+        req := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+        req.Open("POST", finalURL)
+        req.Send()
+    }
+    catch e
+    {
+    }
 }

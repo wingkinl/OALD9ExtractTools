@@ -12,6 +12,7 @@ import lxml
 import copy
 import configparser
 import warnings
+import traceback
 
 #inputParser = "html5lib"
 inputParser = "lxml"
@@ -47,13 +48,26 @@ if config.has_option('Parser', 'addMsgLogFile'):
     value = config['Parser']['addMsgLogFile'].lower()
     addMsgLogFile = value in ['true', '1']
 
+def MakeValidPath(path):
+    dir = os.path.dirname(path)
+    if not os.path.exists(dir):
+        os.mkdir(dir)
+    return path
+
+if addMsgLogFile:
+    MakeValidPath(logFile)
+
 def AddLog(text):
     text = curInputFile + ": " + text
     if debugPrintMsg:
         print(text)
     if addMsgLogFile:
-        with open(logFile, "a") as file:
-            file.write(text + "\r\n")
+        try:
+            with open(logFile, "a") as file:
+                file.write(text + "\r\n")
+        except:
+            pass
+
 
 class OALDEntryParser:
     def __init__(self):
@@ -61,24 +75,35 @@ class OALDEntryParser:
     
     def _ReplaceSpecialSymbol(self, mo):
         if mo.group(1) == '@':
-            symbol_mapping = {'a' : r'\u00E6',  # æ
-                              'n' : r'\u014B'}  # ŋ
-            return symbol_mapping[mo.group(2)]
+            at_map = {'a' : r'\u00E6',  # æ
+                'n' : r'\u014B'}  # ŋ
+            return at_map[mo.group(2)]
+        elif mo.group(1) == 'g':
+            g_map = {'h' : r'\u03B8'}  # θ
+            return g_map[mo.group(2)]
         elif mo.group(1) == 's':
-            symbol_mapping = {'h' : r'\u2018',  # ‘
-                              'i' : r'\u2019',  # ’
-                              'n' : r'\u2014',  # —
-                              'D' : r'\u00B7',  # ·
-                              'L' : r'\u00D7'}  # ×
-            return symbol_mapping[mo.group(2)]
+            s_map = {'c' : r'\u2026',  # …
+                'h' : r'\u2018',  # ‘
+                'i' : r'\u2019',  # ’
+                'm' : r'\u2013',  # –
+                'n' : r'\u2014',  # —
+                'o' : r'\u2122',  # ™
+                'D' : r'\u00B7',  # ·
+                'L' : r'\u00D7'}  # ×
+            return s_map[mo.group(2)]
+        elif mo.group(1) == '-':
+            dash_map = {'a' : r'\u0101',  # ā
+                'e' : r'\u0113',  # ē
+                'i' : r'\u012B'}  # ī
+            return dash_map[mo.group(2)]
         return mo.group()
     
     def _EscapeSpecialText(self, text):
         # decode \@?, \s?
         try:
-            text = re.sub(r'\\([@s])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
+            text = re.sub(r'\\([@gs-])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
         except Exception as e:
-            AddLog(f"failed to replace special symbol in '{curFileName}'\r\n\t{repr(e)}")
+            AddLog(f"failed to replace special symbol in '{curFileName}'\r\n\t{traceback.format_exc()}")
         
         # decode unicode text "\uXXXX"
         with warnings.catch_warnings(record=True) as w:
@@ -111,6 +136,9 @@ class OALDEntryParser:
             newTagName = "span"
             if (child.name is None):
                 continue
+            elif child.name == 'wd':
+                # the word
+                pass
             elif child.name == 'span':
                 pass
             elif (child.name == 'img'):
@@ -126,6 +154,14 @@ class OALDEntryParser:
                 newElem.append(childCopy)
                 child.replace_with(newElem)
                 continue
+            elif child.name == 'lg:sound':
+                soundFileTag = child.find('lg:sound_file')
+                if soundFileTag:
+                    # TODO
+                    soundFileTag.decompose()
+                    pass
+                else:
+                    removeChild = True
             elif child.name == 'sn-gs':
                 pass
             elif child.name == 'sn-g':
@@ -297,6 +333,9 @@ class OALDEntryParser:
             elif child.name == 'hm':
                 # see "agape", superscript for words of different meanings
                 removeChild = True
+            elif child.name == 'hm-g':
+                # see agape1 adjective
+                pass
             elif child.name == 'audio':
                 removeChild = True
             elif child.name == 'topic':
@@ -309,9 +348,100 @@ class OALDEntryParser:
             elif child.name == 'pracpron':
                 removeChild = True
             elif child.name == 'aref':
-                removeChild = True
-            elif child.name == 'lg:tabbed':
                 #removeChild = True
+                pass
+            elif child.name == 'lg_tabbed_head_on':
+                # word origin
+                pass
+            elif child.name == 'lg_tabbed_head_off':
+                # word origin
+                pass
+            elif child.name == 'lg:tabbed':
+                # word origin
+                pass
+            elif child.name == 'lg:tab':
+                # word origin, child of lg:tabbed
+                pass
+            elif child.name == 'zp_link':
+                # word origin, child of lg:tab
+                pass
+            elif child.name == 'text':
+                # word origin, child of zp_link
+                pass
+            elif child.name == 'unbox':
+                # word origin, child of collapse
+                pass
+            elif child.name == 'etym_i':
+                # word origin
+                pass
+            elif child.name == 'p':
+                # word origin
+                pass
+            elif child.name == 'qt':
+                # word origin
+                pass
+            elif child.name == 'lang':
+                # word origin
+                pass
+            elif child.name == 'h1':
+                # More Like this, see a- prefix
+                pass
+            elif child.name == 'h2':
+                # collocations, see age
+                pass
+            elif child.name == 'h3':
+                # Synonyms
+                pass
+            elif child.name == 'ul':
+                # More Like this, see a- prefix
+                pass
+            elif child.name == 'li_mlt':
+                # More Like this, see a- prefix
+                pass
+            elif child.name == 'tr':
+                # word origin, see "aardvark"
+                pass
+            elif child.name == 'ff':
+                # word origin, see "aardvark"
+                pass
+            elif child.name == 'xr':
+                # word origin, see "aargh"
+                pass
+            elif child.name == 'li':
+                # Synonyms
+                pass
+            elif child.name == 'vp-gs':
+                # Verb Forms
+                pass
+            elif child.name == 'vp-g':
+                # Verb Forms
+                pass
+            elif child.name == 'vp':
+                # Verb Forms
+                pass
+            elif child.name == 'xg':
+                # Word Origin, see "abandon"
+                pass
+            elif child.name == 'wfw-g':
+                # Word Family, see "ability"
+                pass
+            elif child.name == 'wfw':
+                # Word Family, see "ability"
+                pass
+            elif child.name == 'wfp':
+                # Word Family, see "ability"
+                pass
+            elif child.name == 'wfo':
+                # Word Family, see "ability"
+                pass
+            elif child.name == 'wx':
+                # Grammar Point, see "able"
+                pass
+            elif child.name == 'dh':
+                # see Aga™ noun
+                pass
+            elif child.name == 'def_qt':
+                # see Aga™ noun
                 pass
             else:
                 AddLog(f"Unexpected tag '{child.name}' in {elem.name} of block {self._curBlockNum}")
@@ -387,17 +517,12 @@ class OALDEntryParser:
             else:
                 text = str(self._bsOut)
             #fOutput.write(str(self._bsOut))
-            text = self._EscapeSpecialText(text)
+            #text = self._EscapeSpecialText(text)
             # remove the redundant number after each list entry
             rep = re.compile(r'sn-g">\s*(\d+)')
             text = rep.sub(r'sn-g">', text)
             fOutput.write(text)
 
-def MakeValidPath(path):
-    dir = os.path.dirname(path)
-    if not os.path.exists(dir):
-        os.mkdir(dir)
-    return path
 
 curDir = os.path.dirname(os.path.abspath(__file__))
 copyfile(curDir + "\\" + interfaceCSS, MakeValidPath(outputDir + "\\" + interfaceCSS))
@@ -418,6 +543,7 @@ for file in fList:
         contents = fInput.read()
         parser = OALDEntryParser()
         fileOut = outputDir + "\\" + curFileName + ".html"
+        contents = parser._EscapeSpecialText(contents)
         parser.Convert(contents, fileOut)
 
 
