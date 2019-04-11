@@ -3,8 +3,8 @@
   <CheatEntries>
     <CheatEntry>
       <ID>0</ID>
-      <Description>"Auto Assemble script"</Description>
-      <LastState Activated="1"/>
+      <Description>"AutoDumpXML"</Description>
+      <LastState/>
       <VariableType>Auto Assembler Script</VariableType>
       <AssemblerScript>define(FILE_APPEND_DATA,4)
 define(OPEN_ALWAYS,4)
@@ -208,6 +208,99 @@ push 00
 //Alt: db 89 45 FC 6A 00
 </AssemblerScript>
     </CheatEntry>
+    <CheatEntry>
+      <ID>1</ID>
+      <Description>"DumpMoreXML"</Description>
+      <LastState/>
+      <VariableType>Auto Assembler Script</VariableType>
+      <AssemblerScript>[ENABLE]
+//code from here to '[DISABLE]' will be used to enable the cheat
+alloc(newmem,2048)
+alloc(oldESP, 4)
+alloc(curEntry, 4)
+alloc(entryCount, 4)
+globalalloc(strMem, 0x100000)
+label(newEntry)
+label(returnhere)
+label(originalcode)
+label(exit)
+
+oldESP:
+dd 0
+
+curEntry:
+dd 0
+
+entryCount:
+dd 0
+
+newmem: //this is allocated memory, you have read,write,execute access
+//place your code here
+// original full stack:
+// 01DBEEA8(esp+0)      - 08EB1020    = eax, buffer
+// 01DBEEAC(esp+4)      - 0100758E    = entry offset
+// 01DBEEB0(esp+8)      - 00000000    = unknown, maybe constant
+// 01DBEEB4(esp+C)      - 08C08754    = unknown
+// 01DBEEB8(esp+10)     - 01000001    = entry base
+// 01DBEEBC(esp+14)     - 0100F19F    = unknown, maybe constant
+// 01DBEEC0(esp+18)     - 0000000F    = number of entries
+// 01DBEEC4(esp+1C)     - 00000001    = unknown, maybe consant
+// 01DBEEC8(esp+20)     - 0009C400    = unknown
+// 01DBEECC(esp+24)     - 08C07FD0    = unknown
+
+mov [oldESP], esp
+push edx
+mov edx, [oldESP]
+mov edx, [edx+10]
+mov [curEntry],edx
+mov [entryCount],0
+
+newEntry:
+mov edx, [oldESP]
+push [edx+24]    // unknown
+push [edx+20]    // unknown
+push [edx+1C]    // unknown, maybe consant 1
+push [edx+18]    // number of entries, 0xF
+push [edx+14]    // unknown, maybe constant 0100F19F
+push [edx+10]    // entry base
+push [edx+C]     // unknown
+push [edx+8]     // unknown, maybe constant 0
+push [curEntry]  // current entry offset
+push strMem      // buffer
+call OALD9.exe+274B0
+
+mov edx,[curEntry]
+add edx, F
+mov [curEntry], edx
+mov edx, [entryCount]
+inc edx
+cmp edx, 10
+jne newEntry
+
+pop edx
+
+
+originalcode:
+//call OALD9.exe+274B0
+
+exit:
+jmp returnhere
+
+"OALD9.exe"+32122:
+jmp newmem
+returnhere:
+
+
+ 
+ 
+[DISABLE]
+//code from here till the end of the code will be used to disable the cheat
+dealloc(newmem)
+"OALD9.exe"+32122:
+call OALD9.exe+274B0
+//Alt: db E8 89 53 FF FF
+</AssemblerScript>
+    </CheatEntry>
   </CheatEntries>
   <UserdefinedSymbols>
     <SymbolEntry>
@@ -241,6 +334,10 @@ push 00
     <SymbolEntry>
       <Name>html_pathnumformat</Name>
       <Address>04330250</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>strMem</Name>
+      <Address>07B80000</Address>
     </SymbolEntry>
   </UserdefinedSymbols>
 </CheatTable>
