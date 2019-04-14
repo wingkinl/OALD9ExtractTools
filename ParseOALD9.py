@@ -75,33 +75,166 @@ class OALDEntryParser:
     
     def _ReplaceSpecialSymbol(self, mo):
         if mo.group(1) == '@':
-            at_map = {'a' : r'\u00E6',  # æ
-                'n' : r'\u014B'}  # ŋ
+            at_map = {
+                'A' : r'\u00C6',  # Æ
+                'a' : r'\u00E6',  # æ
+                'd' : r'\u00F0',  # ð
+                'n' : r'\u014B',  # ŋ
+                'o' : r'\u0153',  # œ, see cri de cœur
+                'y' : r'\u00FE',  # þ
+            }
             return at_map[mo.group(2)]
-        elif mo.group(1) == 'g':
-            g_map = {'h' : r'\u03B8'}  # θ
+        elif mo.group(1) == 'g':  # greek alphabet
+            g_map = {
+                'C' : r'\u0393',  # Γ, see gamma
+                'D' : r'\u0394',  # α, see delta
+                'H' : r'\u0398',  # Θ, see theta
+                'L' : r'\u039B',  # Λ, see lambda
+                'P' : r'\u03A0',  # Π, see pi
+                'Q' : r'\u039E',  # Ξ, see xi
+                'S' : r'\u03A3',  # Σ, see sigma
+                'V' : r'\u03A6',  # Φ, see phi
+                'Y' : r'\u03A8',  # Φ, see psi
+                'Z' : r'\u03A9',  # Ω, see omega
+                'a' : r'\u03B1',  # α
+                'b' : r'\u03B2',  # β
+                'c' : r'\u03B3',  # γ, see caribou
+                'd' : r'\u03B4',  # δ, see delta
+                'f' : r'\u03B6',  # ζ, see zeta
+                'g' : r'\u03B7',  # η, see eta
+                'h' : r'\u03B8',  # θ, see theta
+                'i' : r'\u03B9',  # ι, see iota
+                'k' : r'\u03BA',  # κ, see aphid
+                'l' : r'\u03BB',  # λ, see lambda
+                'm' : r'\u03BC',  # μ, see microgram
+                'n' : r'\u03BD',  # ν, see nu
+                'p' : r'\u03C0',  # π, see 'irrational number'
+                'q' : r'\u03BE',  # ξ, see equation
+                'r' : r'\u03C1',  # ρ, see aphid
+                's' : r'\u03C3',  # σ, see sigma
+                't' : r'\u03C4',  # τ, see tau
+                'u' : r'\u03C5',  # υ, see upsilon
+                'x' : r'\u03C7',  # χ, see chi
+                'y' : r'\u03C8',  # ψ, see psi
+                'z' : r'\u03C9',  # ω, see omega
+            }
             return g_map[mo.group(2)]
         elif mo.group(1) == 's':
-            s_map = {'c' : r'\u2026',  # …
+            s_map = {
+                '1' : r'\u00AE',  # ®, see google
+                '2' : r'\u00B0',  # °
+                'a' : r'\u201A',  # ‚
+                'c' : r'\u2026',  # …
                 'h' : r'\u2018',  # ‘
                 'i' : r'\u2019',  # ’
+                'j' : r'\u201C',  # “
+                'k' : r'\u201D',  # ”
                 'm' : r'\u2013',  # –
                 'n' : r'\u2014',  # —
                 'o' : r'\u2122',  # ™
+                'q' : r'\u00A1',  # ¡, see Hello!
+                'r' : r'\u00A2',  # ¢, see dollar
+                's' : r'\u00A3',  # £
+                'x' : r'\u00A9',  # ©, see C abbreviation
                 'D' : r'\u00B7',  # ·
-                'L' : r'\u00D7'}  # ×
+                'H' : r'\u00BC',  # ¼, see mixed number
+                'I' : r'\u00BD',  # ½, see bit
+                'J' : r'\u00BE',  # ¾, see denominator
+                'L' : r'\u00D7',  # ×
+                'M' : r'\u00F7',  # ÷, see divide
+            }
             return s_map[mo.group(2)]
         elif mo.group(1) == '-':
-            dash_map = {'a' : r'\u0101',  # ā
+            dash_map = {
+                'E' : r'\u0112',  # Ē, see Easter
+                'I' : r'\u012A',  # Ī, see Irish
+                'a' : r'\u0101',  # ā
                 'e' : r'\u0113',  # ē
-                'i' : r'\u012B'}  # ī
+                'i' : r'\u012B',  # ī
+                'o' : r'\u014D',  # ō
+                'u' : r'\u016B',  # ū
+            }
             return dash_map[mo.group(2)]
+        elif mo.group(1) == '+':
+            plus_map = {
+                'a' : r'\u0103',  # ă, see chow mein
+                'i' : r'\u012D',  # ĭ, see beluga
+                'u' : r'\u016D',  # ŭ, see tofu
+            }
+            return plus_map[mo.group(2)]
+        elif mo.group(1) == '_':
+            under_map = {
+                'l' : r'\u0142',  # ł, see bialy
+                'o' : r'\u00F8',  # ø, see bilberry
+            }
+            return under_map[mo.group(2)]
+        elif mo.group(1) == ':':
+            colon_map = {
+                'A' : r'\u00C4',  # Ä, see ear
+                'U' : r'\u00DC',  # Ü, see evil
+                'a' : r'\u00E4',  # ä, see aspirin
+                'e' : r'\u00EB',  # ë, see Beelzebub
+                'i' : r'\u00EF',  # ï
+                'o' : r'\u00F6',  # ö, see antibody
+                'u' : r'\u00FC',  # ü, see boob
+            }
+            return colon_map[mo.group(2)]
+        elif mo.group(1) == '^':
+            a_map = {
+                'A' : r'\u00C2',  # Â, see deficit
+                'a' : r'\u00E2',  # â, see baton
+                'e' : r'\u00EA',  # ê, see arête
+                'g' : r'\u011D',  # ĝ, see toboggan
+                'i' : r'\u00EE',  # î, see bivouac
+                'o' : r'\u00F4',  # ô
+                'u' : r'\u00FB',  # û, see crème brûlée 
+                'y' : r'\u0177',  # ŷ, see wood
+            }
+            return a_map[mo.group(2)]
+        elif mo.group(1) == '`':
+            a2_map = {
+                'a' : r'\u00E0',  # à
+                'i' : r'\u00EC',  # ì, see chop suey
+                'e' : r'\u00E8',  # è, see anther
+                'o' : r'\u00F2',  # ò, see Machiavellian
+                'u' : r'\u00F9',  # ù, see loop
+            }
+            return a2_map[mo.group(2)]
+        elif mo.group(1) == '~':
+            a3_map = {
+                'a' : r'\u00E3',  # ã, see caiman
+                'i' : r'\u0129',  # ĩ, see capybara
+                'n' : r'\u00F1',  # ñ, see canyon
+                'u' : r'\u0169',  # ũ, see tank
+            }
+            return a3_map[mo.group(2)]
+        elif mo.group(1) == '\'':
+            a4_map = {
+                'E' : r'\u00C9',  # É, see gallium
+                'S' : r'\u015A',  # Ś, see Shri
+                'a' : r'\u00E1',  # á, see afloat
+                'e' : r'\u00E9',  # é, see academic
+                'i' : r'\u00ED',  # í, see Angostura
+                'n' : r'\u0144',  # ń, see origin
+                'o' : r'\u00F3',  # ó, see canyon
+                's' : r'\u015B',  # ś, see ashram
+                'u' : r'\u00FA',  # ú, see bondage
+                'y' : r'\u00FD',  # ý, see by-law
+            }
+            return a4_map[mo.group(2)]
+        elif mo.group(1) == '.':
+            dot_map = {
+                'i' : r'\u0131',  # ı, see raki
+            }
+            return dot_map[mo.group(2)]
         return mo.group()
     
     def _EscapeSpecialText(self, text):
+        #text = text.replace(r'\`a', r'\u00E0')  # à
+        text = text.replace(r'\,',  r'\u00E7')  # ç
         # decode \@?, \s?
         try:
-            text = re.sub(r'\\([@gs-])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
+            text = re.sub(r'\\([@gs\-:\^`+_~\'\.])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
         except Exception as e:
             AddLog(f"failed to replace special symbol in '{curFileName}'\r\n\t{traceback.format_exc()}")
         
@@ -188,6 +321,24 @@ class OALDEntryParser:
             elif child.name == 'esc':
                 # see "A noun", SEE ALSO, no example on web
                 pass
+            elif child.name == 'sc':
+                # see "carpe diem"
+                pass
+            elif child.name == 'er':
+                # see "clear"
+                pass
+            elif child.name == 'nil':
+                # see "cheap adverb"
+                pass
+            elif child.name == 'frac-g':
+                # see "decimalize"
+                pass
+            elif child.name == 'den':
+                # see "decimalize"
+                pass
+            elif child.name == 'num':
+                # see "decimalize"
+                pass
             elif child.name == 'ref':
                 newTagName = "a"
             elif child.name == 'xr-g':
@@ -199,11 +350,20 @@ class OALDEntryParser:
             elif child.name == 'xw':
                 # in "aback" see also, link
                 pass
+            elif child.name == 'id':
+                # see bat verb, TODO, maybe set attribute psg="tag=id"?
+                pass
             elif child.name == "ei":
                 # see "a indefinite article", [one] before some numbers
                 pass
             elif child.name == "ebi":
-                # see "George Abbott ", The Boys from Syracuse
+                # see "George Abbott", The Boys from Syracuse
+                pass
+            elif child.name == "esu":
+                # see "ye determiner"
+                pass
+            elif child.name == "ve":
+                # see "almond"
                 pass
             elif child.name == 'idm-gs':
                 # idioms
@@ -223,9 +383,31 @@ class OALDEntryParser:
             elif child.name == 'sn-g':
                 # idioms
                 pass
+            elif child.name == 'xhm':
+                # see accept
+                pass
+            elif child.name == 'blockquote':
+                # see "Dean Acheson"
+                pass
+            elif child.name == 'footer':
+                # see "Dean Acheson"
+                pass
+            elif child.name == 'p-g':
+                # see "Dean Acheson"
+                # TODO, maybe add span 'wrap_open'?
+                newTagName = 'div'
+            elif child.name == 'sense':
+                # see affect
+                pass
+            elif child.name == 'eph':
+                # see affricate
+                pass
             elif child.name == 'res-g':
                 pass
             elif child.name == 'dis-g':
+                pass
+            elif child.name == 'sedev':
+                # see bloat
                 pass
             elif child.name == 'dtxt':
                 pass
@@ -288,6 +470,9 @@ class OALDEntryParser:
                 pass
             elif child.name == 'subj':
                 pass
+            elif child.name == 'sup':
+                # see angstrom
+                pass
             elif child.name == 'pv-gs':
                 # phrasal verbs
                 pass
@@ -318,6 +503,12 @@ class OALDEntryParser:
             elif child.name == 'exp':
                 # see "acclaim"
                 pass
+            elif child.name == 'shcut':
+                # see absorb
+                pass
+            elif child.name == 'deadxref':
+                # see absurdly
+                pass
             elif child.name == 'sub':
                 # see "acetylene", chemical element symbol subscript
                 pass
@@ -329,6 +520,9 @@ class OALDEntryParser:
                 pass
             elif child.name == 'z':
                 # see phrasal verb "add up"
+                pass
+            elif child.name == 'n':
+                # see African
                 pass
             elif child.name == 'hm':
                 # see "agape", superscript for words of different meanings
@@ -445,6 +639,7 @@ class OALDEntryParser:
                 pass
             else:
                 AddLog(f"Unexpected tag '{child.name}' in {elem.name} of block {self._curBlockNum}")
+                AddLog(f"{str(child)}")
                 pass
             if removeChild:
                 child.decompose()
@@ -456,16 +651,27 @@ class OALDEntryParser:
         hgsCount = 0
         for nn in range(len(entry.contents)-1, -1, -1):
             child = entry.contents[nn]
+            removeChild = False
+            newTagName = "span"
             if (child.name is None):
                 continue
             if (child.name == 'guide_info'):
-                child.decompose()
+                removeChild = True
             elif child.name == 'h-g':
                 hgsCount += 1
-                self._ParseConvertElem(child, "ol")
+                newTagName = "ol"
+            elif child.name == 'idm-gs':
+                pass
+            elif child.name == 'lg:tabbed':
+                # see hardly
+                pass
             else:
                 AddLog(f"Unexpected tag '{child.name}' in entry of block {self._curBlockNum}")
-                continue
+                pass
+            if removeChild:
+                child.decompose()
+            else:
+                self._ParseConvertElem(child, newTagName)
         if hgsCount != 1:
             AddLog(f"Found {hgsCount} h-g in block {self._curBlockNum}")
         return hgsCount == 1

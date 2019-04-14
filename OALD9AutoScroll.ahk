@@ -26,27 +26,26 @@ IniRead, urlBark, %iniPath%, OALDAutoScroll, urlBark, %urlBark%
 
 checkOALDTimerOn := false
 
-CheckOutputFileRelaunchOALD()
-
 #n::
     if checkOALDTimerOn
     {
         checkOALDTimerOn := false
         SetTimer, CheckOALD, Off
-        SetTimer, DoMouseWheel, Off
+        SetTimer, UpdateOALDEntries, Off
     }
     else
     {
         checkOALDTimerOn := true
         SetTimer, CheckOALD, 3000
-        SetTimer, DoMouseWheel, 10
+        SetTimer, UpdateOALDEntries, 10
     }
 return
 
 #q::ExitApp
 
-DoMouseWheel:
-    SendInput, {WheelDown}
+UpdateOALDEntries:
+    ;SendInput, {WheelDown}
+    SendInput, {PgDn}
     return
 
 CheckOALD:
@@ -55,63 +54,20 @@ CheckOALD:
         return
     ReportError("Process is dead")
     
-    if (!CheckOutputFileRelaunchOALD())
+    if (!LaunchOALD())
         return
 return
 
 ReportError(msg)
 {
     SendToBark("OALD", msg)
+    checkOALDTimerOn := false
     SetTimer, CheckOALD, Off
+    SetTimer, UpdateOALDEntries, Off
     return false
 }
 
-CheckOutputFileRelaunchOALD()
-{
-    GetLastEntryInOutput(lastWord)
-
-    if (!LaunchOALD(lastWord))
-        return false
-    return true
-}
-
-CheckLastOutputFile(ByRef path)
-{
-    global OALDOutDir
-    num := 1
-    Loop
-    {
-        pathTemp := OALDOutDir . Format("{:06d}.xml", num)
-        if ( !FileExist(pathTemp) )
-            break
-        ++num
-    }
-    if num > 1
-        path := OALDOutDir . Format("{:06d}.xml", num-1)
-    return num-1
-}
-
-GetLastEntryInOutput(ByRef word)
-{
-    num := CheckLastOutputFile(fileLastXML)
-    if num <= 0
-        return ReportError("failed to find any output file.")
-    FileRead, fileText, %fileLastXML%
-    lastEntryPos := InStr(fileText, "<lg:block num=", false, -1, 2)
-    if lastEntryPos == 0
-        return ReportError("failed to find the last entry in output file.")
-    posWord := InStr(fileText, "wd=""", false, lastEntryPos)
-    if posWord == 0
-        return ReportError("failed to find word of the last entry in output file.")
-    posWord := posWord + 4
-    posWordEnd := InStr(fileText, """", false, posWord)
-    word := SubStr(fileText, posWord, posWordEnd-posWord)
-    if StrLen(word) == 0
-        return ReportError("empty word in the last entry")
-    return true
-}
-
-LaunchOALD(word)
+LaunchOALD()
 {
     global OALDexe, OALDpid
     run, %OALDexe%, , , OALDpid
@@ -121,10 +77,6 @@ LaunchOALD(word)
     if OALDpid == 0
         return ReportError("failed to launch exe")
     ;WinActivate, ahk_pid %OALDpid%
-    ControlSend, LgWndSimpleClass228, %word%, ahk_pid %OALDpid%
-    Sleep, 1000
-    click, 39, 228
-    Sleep, 500
     
     return true
 }

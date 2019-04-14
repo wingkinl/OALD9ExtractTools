@@ -2,21 +2,29 @@
 <CheatTable CheatEngineTableVersion="28">
   <CheatEntries>
     <CheatEntry>
-      <ID>0</ID>
+      <ID>3</ID>
       <Description>"AutoDumpXML"</Description>
       <LastState/>
       <VariableType>Auto Assembler Script</VariableType>
       <AssemblerScript>define(FILE_APPEND_DATA,4)
+define(FILE_GENERIC_READ,0x00120089)
+define(FILE_GENERIC_WRITE,0x00120116)
+define(FILE_GENERIC_READWRITE,0x0012019f)
 define(OPEN_ALWAYS,4)
+define(OPEN_EXISTING, 3)
 define(FILE_ATTRIBUTE_NORMAL,0x00000080)
+define(FILE_BEGIN,0)
 define(FILE_END,2)
+define(INVALID_HANDLE_VALUE,0xffffffff)
 
 globalalloc(html_str, 4)
 globalalloc(html_len, 4)
-globalalloc(html_cnt, 4)
+globalalloc(passedInEntryIDAddr, 4)
+globalalloc(nextEntryID, 4)
 globalalloc(file_bytes, 4)
-globalalloc(html_filedir, 255)
-globalalloc(html_filepath, 255)
+globalalloc(html_filedir, 256)
+globalalloc(html_filepath, 256)
+globalalloc(nextEntry_filepath, 256)
 globalalloc(html_pathnumaddr, 4)
 globalalloc(html_pathnumformat, 20)
 
@@ -26,11 +34,17 @@ dd 0
 html_len:
 dd 0
 
-html_cnt:
+passedInEntryIDAddr:
+dd 0
+
+nextEntryID:
 dd 0
 
 html_filedir:
 db 'C:\OALD9_Out\'
+
+nextEntry_filepath:
+db 'C:\OALD9_Out\lastEntry.txt'
 
 html_filepath:
 db 0
@@ -41,72 +55,80 @@ dd 0
 html_pathnumformat:
 db '%06d.xml', 0
 
-/*
-// lua is slow, so this is not used for now
-{$lua}
-function myfunction(straddr)
-  --showMessage('html: '..straddr)
-  len = readInteger('html_len')
-  --showMessage('len: '..len)
-  --str = readString(straddr, len)
-  --showMessage('str: '..str)
-  --showMessage('len of str is: '..string.len(str))
-  cnt = readInteger('html_cnt')
-  cnt = cnt + 1
-  writeInteger('html_cnt', cnt)
-  filePath = string.format("C:\\OALD\\%d.html", cnt)
-  writeRegionToFile(filePath, straddr, len)
-end
-{$asm}
-
-loadlibrary(luaclient-i386.dll)
-luacall(openLuaServer('CELUASERVER'))
-
-CELUA_ServerName:
-db 'CELUASERVER',0
-
-alloc(str_myfunction,32)
-alloc(functionid,4)
-
-str_myfunction:
-db 'return myfunction(parameter)',0
-*/
-
 [ENABLE]
 //code from here to '[DISABLE]' will be used to enable the cheat
 alloc(newmem,2048)
-alloc(hFile,4)
-label(IncNumFileCheck)
-label(IncNumWriteFile)
+alloc(hOutputFile,4)
+alloc(hRecordFile,4)
+alloc(temp, 4)
+alloc(entryCount, 4)
+alloc(baseEntryID, 4)
+label(UpdateEntryIDWriteFile)
+label(UsepassedInEntryIDAddr)
 label(DoWriteFile)
 label(Cleanup)
+label(CleanupNoRecordFile)
 label(returnhere)
 label(originalcode)
 label(exit)
 
-newmem: //this is allocated memory, you have read,write,execute access
-//place your code here
-mov [html_str],esp
-push edx
-push ecx
-push eax
+hRecordFile:
+dd 0
 
-mov edx, [html_str]
-sub edx, 28
-mov edx, [edx]
-mov [html_str],edx
-push [html_str]
-call kernel32.lstrlenA // stdcall, no cleanup
-mov [html_len], eax
+temp:
+dd 0
+
+entryCount:
+dd 0
+
+baseEntryID:
+dd 0
+
+newmem: //this is allocated memory, you have read,write,execute access
+// original stack frame
+// 01DBEEA8(esp+0)      - 084F9020  string buffer
+// 01DBEEAC(esp+4)      - 0100000C  entry index
+// 01DBEEB0(esp+8)      - 00000000
+// 01DBEEB4(esp+C)      - 08228624
+// 01DBEEB8(esp+10)     - 01000001  base entry index
+// 01DBEEBC(esp+14)     - 0100F19F  max entry index?
+// 01DBEEC0(esp+18)     - 0000000F  numer of entries
+// 01DBEEC4(esp+1C)     - 00000001
+// 01DBEEC8(esp+20)     - 0009C400
+// 01DBEECC(esp+24)     - 08227FF0
+
+mov [html_str],eax
+lea eax, [esp+4]
+mov [passedInEntryIDAddr], eax
+mov eax, [esp+10]
+mov [baseEntryID], eax
+mov eax, [esp+18]
+mov [entryCount], eax
+pushad
+
+// open record file first
+push 0
+push FILE_ATTRIBUTE_NORMAL
+push OPEN_ALWAYS
+push 0
+push 0
+push FILE_GENERIC_READWRITE
+push nextEntry_filepath
+call kernel32.CreateFileA
+cmp eax, INVALID_HANDLE_VALUE
+je Cleanup
+mov [hRecordFile], eax
 
 // check if this is the first time
-cmp [html_cnt], 0
-jne IncNumWriteFile
+cmp [nextEntryID], 0
+jne UpdateEntryIDWriteFile
 
+// set up the file path if this is the first time
 push html_filedir
 push html_filepath
 call kernel32.lstrcpyA
 
+// create the directory for output files
 push 0
 push html_filepath
 call kernel32.CreateDirectoryA
@@ -118,35 +140,54 @@ lea edx,[html_filepath]
 add edx,eax
 mov [html_pathnumaddr], edx
 
-// find the next available number
-mov [html_cnt], 1
+// find the next entry ID by reading record file
+mov [file_bytes],0
+push 0
+push file_bytes
+push 4
+push temp
+push [hRecordFile]
+call kernel32.ReadFile
+cmp [file_bytes], 4
+jne UsepassedInEntryIDAddr
 
-IncNumFileCheck:
-push [html_cnt]
-push html_pathnumformat
-push [html_pathnumaddr]
-call user32.wsprintfA
+// update entry ID from record file
+mov eax, [temp]
+mov [nextEntryID], eax
 
-push html_filepath
-call kernel32.GetFileAttributesA
-cmp eax, 0xFFFFFFFF
-je DoWriteFile
-mov eax, [html_cnt]
-inc eax
-mov [html_cnt], eax
-jmp IncNumFileCheck
+push FILE_BEGIN
+push 0
+push 0
+push [hRecordFile]
+call kernel32.SetFilePointer
+jmp UpdateEntryIDWriteFile
 
-IncNumWriteFile:
-mov eax, [html_cnt]
-inc eax
-mov [html_cnt], eax
+UsepassedInEntryIDAddr:
+mov eax, [passedInEntryIDAddr]
+mov eax, [eax]    // entry ID
+mov [nextEntryID], eax
+jmp DoWriteFile
 
-push [html_cnt]
-push html_pathnumformat
-push [html_pathnumaddr]
-call user32.wsprintfA
+UpdateEntryIDWriteFile:
+mov eax, [nextEntryID]
+push edx
+mov edx, [passedInEntryIDAddr]
+mov [edx], eax    // update the argument entry ID
+pop edx
 
 DoWriteFile:
+popad
+// get the entry now
+call OALD9.exe+274B0
+
+mov eax, [nextEntryID]
+mov edx, [baseEntryID]
+sub eax, edx
+push eax
+push html_pathnumformat
+push [html_pathnumaddr]
+call user32.wsprintfA
+
 //push [html_str]
 //push str_myfunction
 //call CELUA_ExecuteFunction
@@ -158,130 +199,57 @@ push 0
 push FILE_APPEND_DATA
 push html_filepath
 call kernel32.CreateFileA
-test eax, eax
+cmp eax, INVALID_HANDLE_VALUE
 je Cleanup
 
-mov [hFile], eax
+mov [hOutputFile], eax
 
 push FILE_END
 push 0
 push 0
-push [hFile]
+push [hOutputFile]
 call kernel32.SetFilePointer
+
+push [html_str]
+call kernel32.lstrlenA // stdcall, no cleanup
+mov [html_len], eax
 
 push 0
 push file_bytes
 push [html_len]
 push [html_str]
-push [hFile]
+push [hOutputFile]
 call kernel32.WriteFile
 
-push [hFile]
+push [hOutputFile]
 call kernel32.CloseHandle
+mov [hOutputFile], 0
 
+// update the next entry ID
+mov eax, [nextEntryID]
+add eax, [entryCount] // add number of entries
+mov [nextEntryID], eax
+
+// log the next entry ID to record file
+push 0
+push file_bytes
+push 4
+push nextEntryID
+push [hRecordFile]
+call kernel32.WriteFile
 
 Cleanup:
-pop eax
-pop ecx
-pop edx
+cmp [hRecordFile], 0
+je CleanupNoRecordFile
+push [hRecordFile]
+call kernel32.CloseHandle
+mov [hRecordFile], 0
+
+CleanupNoRecordFile:
+jmp exit
 
 originalcode:
-mov [ebp-04],eax
-push 00
-
-exit:
-jmp returnhere
-
-"OALD9.exe"+32127:
-jmp newmem
-returnhere:
-
-
-
-
-[DISABLE]
-//code from here till the end of the code will be used to disable the cheat
-dealloc(newmem)
-"OALD9.exe"+32127:
-mov [ebp-04],eax
-push 00
-//Alt: db 89 45 FC 6A 00
-</AssemblerScript>
-    </CheatEntry>
-    <CheatEntry>
-      <ID>1</ID>
-      <Description>"DumpMoreXML"</Description>
-      <LastState/>
-      <VariableType>Auto Assembler Script</VariableType>
-      <AssemblerScript>[ENABLE]
-//code from here to '[DISABLE]' will be used to enable the cheat
-alloc(newmem,2048)
-alloc(oldESP, 4)
-alloc(curEntry, 4)
-alloc(entryCount, 4)
-globalalloc(strMem, 0x100000)
-label(newEntry)
-label(returnhere)
-label(originalcode)
-label(exit)
-
-oldESP:
-dd 0
-
-curEntry:
-dd 0
-
-entryCount:
-dd 0
-
-newmem: //this is allocated memory, you have read,write,execute access
-//place your code here
-// original full stack:
-// 01DBEEA8(esp+0)      - 08EB1020    = eax, buffer
-// 01DBEEAC(esp+4)      - 0100758E    = entry offset
-// 01DBEEB0(esp+8)      - 00000000    = unknown, maybe constant
-// 01DBEEB4(esp+C)      - 08C08754    = unknown
-// 01DBEEB8(esp+10)     - 01000001    = entry base
-// 01DBEEBC(esp+14)     - 0100F19F    = unknown, maybe constant
-// 01DBEEC0(esp+18)     - 0000000F    = number of entries
-// 01DBEEC4(esp+1C)     - 00000001    = unknown, maybe consant
-// 01DBEEC8(esp+20)     - 0009C400    = unknown
-// 01DBEECC(esp+24)     - 08C07FD0    = unknown
-
-mov [oldESP], esp
-push edx
-mov edx, [oldESP]
-mov edx, [edx+10]
-mov [curEntry],edx
-mov [entryCount],0
-
-newEntry:
-mov edx, [oldESP]
-push [edx+24]    // unknown
-push [edx+20]    // unknown
-push [edx+1C]    // unknown, maybe consant 1
-push [edx+18]    // number of entries, 0xF
-push [edx+14]    // unknown, maybe constant 0100F19F
-push [edx+10]    // entry base
-push [edx+C]     // unknown
-push [edx+8]     // unknown, maybe constant 0
-push [curEntry]  // current entry offset
-push strMem      // buffer
 call OALD9.exe+274B0
-
-mov edx,[curEntry]
-add edx, F
-mov [curEntry], edx
-mov edx, [entryCount]
-inc edx
-cmp edx, 10
-jne newEntry
-
-pop edx
-
-
-originalcode:
-//call OALD9.exe+274B0
 
 exit:
 jmp returnhere
@@ -291,8 +259,8 @@ jmp newmem
 returnhere:
 
 
- 
- 
+
+
 [DISABLE]
 //code from here till the end of the code will be used to disable the cheat
 dealloc(newmem)
@@ -305,11 +273,11 @@ call OALD9.exe+274B0
   <UserdefinedSymbols>
     <SymbolEntry>
       <Name>html_str</Name>
-      <Address>04330000</Address>
+      <Address>065F0000</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_len</Name>
-      <Address>04330010</Address>
+      <Address>065F0010</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_cnt</Name>
@@ -317,27 +285,51 @@ call OALD9.exe+274B0
     </SymbolEntry>
     <SymbolEntry>
       <Name>file_bytes</Name>
-      <Address>04330030</Address>
+      <Address>065F0040</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_filedir</Name>
-      <Address>04330040</Address>
+      <Address>065F0050</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_filepath</Name>
-      <Address>04330140</Address>
+      <Address>065F0150</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_pathnumaddr</Name>
-      <Address>04330240</Address>
+      <Address>065F0350</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_pathnumformat</Name>
-      <Address>04330250</Address>
+      <Address>065F0360</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>strMem</Name>
-      <Address>07B80000</Address>
+      <Address>03AD0000</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>oldESP</Name>
+      <Address>02090000</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>curEntry</Name>
+      <Address>02090010</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>entryCount</Name>
+      <Address>02090020</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>nextEntryID</Name>
+      <Address>065F0030</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>nextEntry_filepath</Name>
+      <Address>065F0250</Address>
+    </SymbolEntry>
+    <SymbolEntry>
+      <Name>passedInEntryIDAddr</Name>
+      <Address>065F0020</Address>
     </SymbolEntry>
   </UserdefinedSymbols>
 </CheatTable>
