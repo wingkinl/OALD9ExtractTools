@@ -506,7 +506,11 @@ class OALDEntryParser:
                 pass
             elif child.name == 'pnc_heading':
                 # verb forms heading
-                child.name = 'heading'
+                #print(f"{str(elem)}\r\n--\r\n")
+                if elem['class'] == 'body':
+                    removeChild = True
+                else:
+                    child.name = 'heading'
             elif child.name == 'pvp-g':
                 # can't find example
                 pass
