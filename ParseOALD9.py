@@ -248,7 +248,7 @@ class OALDEntryParser:
                 AddLog(f"failed to replace unicode in '{curFileName}'\r\n\t{str(w[-1].message)}")
         return text
 
-    def _ParseConvertElem(self, elem, tagName, attrs = ['geo','heading']):
+    def _ParseConvertElem(self, elem, tagName, attrs = ['geo','heading','ox3000']):
         if elem.attrs:
             # preserve the attributes for styling some tags
             # geo for "blue"/"red"
@@ -277,7 +277,8 @@ class OALDEntryParser:
             elif child.name == 'span':
                 pass
             elif (child.name == 'img'):
-                newTagName = child.name
+                removeChild = True
+                #newTagName = child.name
                 #src = child['src']
                 #if src == 'skin:///xseps':
                 #    child['src'] = './images/entry/entry-bullet.png'
@@ -470,7 +471,10 @@ class OALDEntryParser:
             elif child.name == 'reg':
                 pass
             elif child.name == 'gram-g':
-                pass
+                if child.parent.has_attr('ox3000') and child.parent['ox3000'] == 'y':
+                    newElem = self._bsOut.new_tag('a')
+                    newElem['class'] = 'oxford3000'
+                    child.insert_before(newElem)
             elif child.name == 'gram':
                 pass
             elif child.name == 'geo':   # geographic
@@ -574,8 +578,29 @@ class OALDEntryParser:
                     pass
                 else:
                     unbox = self._bsOut.new_tag('unbox');
-                    collapseElem.unbox.wrap(unbox)
-                    collapseElem.unbox.unbox.name = 'body'
+                    if collapseElem.unbox != None:
+                        # change the original unbox as 'body'
+                        collapseElem.unbox.name = 'body'
+                        collapseElem.body.wrap(unbox)
+                    elif collapseElem.find('vp-gs'):
+                        group = collapseElem.find('vp-gs')
+                        group.name = 'body'
+                        group.wrap(unbox)
+                    elif collapseElem.find('x-gs'): # extra examples, see abandon
+                        group = collapseElem.find('x-gs')
+                        body = self._bsOut.new_tag('body')
+                        group.wrap(body)
+                        body.wrap(unbox)
+                    elif collapseElem.find('wfw-g'):  # word family, see ability
+                        group = collapseElem.find('wfw-g')
+                        collapseElem.name = 'body'
+                        collapseElem.wrap(unbox)
+                        collapseElemNew = self._bsOut.new_tag('collapse');
+                        collapseElemNew['title'] = collapseElem['title']
+                        collapseElem = collapseElemNew
+                        unbox.wrap(collapseElem)
+                    else:
+                        AddLog(f"failed to find body for collapse in block {self._curBlockNum}\r\n{str(collapseElem)}")
                     collapseElemCopy = copy.copy(collapseElem)
                     headingElem = self._bsOut.new_tag('heading')
                     headingElem.string = collapseElemCopy['title']
@@ -761,8 +786,10 @@ class OALDEntryParser:
             #fOutput.write(str(self._bsOut))
             #text = self._EscapeSpecialText(text)
             # remove the redundant number after each list entry
-            rep = re.compile(r'sn-g">\s*(\d+)')
-            text = rep.sub(r'sn-g">', text)
+            #rep = re.compile(r'sn-g">\s*(\d+)')
+            #text = rep.sub(r'sn-g">', text)
+            #rep = re.compile(r'(sn-g"[^>*]>)\s*(\d+)')
+            text = re.sub(r'(sn-g"[^>]*>)\s*(\d+)', r'\1', text)
             fOutput.write(text)
 
 
