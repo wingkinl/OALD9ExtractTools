@@ -23,6 +23,7 @@ curInputFile = ""
 interfaceCSS = r'styles\interface.css'
 # source: https://www.oxfordlearnersdictionaries.com/external/styles/oxford.css?version=1.6.51
 oxfordCSS = r'styles\oxford.css'
+entryJS = r'scripts\entry.js'
 prettyOutput = True
 debugPrintMsg = False
 addMsgLogFile = True
@@ -247,16 +248,17 @@ class OALDEntryParser:
                 AddLog(f"failed to replace unicode in '{curFileName}'\r\n\t{str(w[-1].message)}")
         return text
 
-    def _ParseConvertElem(self, elem, tagName):
+    def _ParseConvertElem(self, elem, tagName, attrs = ['geo','heading']):
         if elem.attrs:
             # preserve the attributes for styling some tags
             # geo for "blue"/"red"
-            geo = ""
-            if elem.has_attr('geo'):
-                geo = elem['geo']
+            attrsDict = {}
+            for attr in attrs:
+                if elem.has_attr(attr):
+                    attrsDict[attr] = elem[attr]
             elem.attrs.clear()
-            if geo:
-                elem['geo'] = geo
+            for attrName, attrValue in attrsDict.items():
+                elem[attrName] = attrValue
         if elem.name == "ref":
             elem['href'] = f"entry://{elem.string}"
         if (elem.name != tagName):
@@ -276,6 +278,9 @@ class OALDEntryParser:
                 pass
             elif (child.name == 'img'):
                 newTagName = child.name
+                #src = child['src']
+                #if src == 'skin:///xseps':
+                #    child['src'] = './images/entry/entry-bullet.png'
             elif child.name == 'top-g':
                 self._ParseConvertElem(child, 'span')
                 newElem = self._bsOut.new_tag('div')
@@ -424,6 +429,10 @@ class OALDEntryParser:
                 pass
             elif child.name == 'h':
                 newTagName = "h2"
+                if child.has_attr('ox3000') and child['ox3000'] == 'y':
+                    newElem = self._bsOut.new_tag('a')
+                    newElem['class'] = 'oxford3000'
+                    child.insert_before(newElem)
             elif child.name == 'pos-g':
                 pass
             elif child.name == 'pos':
@@ -493,7 +502,7 @@ class OALDEntryParser:
                 pass
             elif child.name == 'pnc_heading':
                 # verb forms heading
-                pass
+                child.name = 'heading'
             elif child.name == 'pvp-g':
                 # can't find example
                 pass
@@ -546,12 +555,36 @@ class OALDEntryParser:
                 pass
             elif child.name == 'lg_tabbed_head_on':
                 # word origin
-                pass
+                removeChild = True
             elif child.name == 'lg_tabbed_head_off':
                 # word origin
-                pass
+                removeChild = True
             elif child.name == 'lg:tabbed':
                 # word origin
+                collapseCount = 0
+                collapseElem = None
+                for tab in child.children:
+                    if tab.name == 'lg:tab':
+                        for tabChild in tab.children:
+                            if tabChild.name == 'collapse':
+                                collapseCount = collapseCount + 1
+                                collapseElem = tabChild
+                if collapseCount != 1:
+                    AddLog(f"lg:tabbed does not contains 1 collapse in block {self._curBlockNum}")
+                    pass
+                else:
+                    unbox = self._bsOut.new_tag('unbox');
+                    collapseElem.unbox.wrap(unbox)
+                    collapseElem.unbox.unbox.name = 'body'
+                    collapseElemCopy = copy.copy(collapseElem)
+                    headingElem = self._bsOut.new_tag('heading')
+                    headingElem.string = collapseElemCopy['title']
+                    collapseElemCopy.unbox.body.insert_before(headingElem)
+                    child.replace_with(collapseElemCopy)
+                    self._ParseConvertElem(collapseElemCopy, 'span')
+            elif child.name == 'body':
+                pass
+            elif child.name == 'heading':
                 pass
             elif child.name == 'lg:tab':
                 # word origin, child of lg:tabbed
@@ -705,6 +738,8 @@ class OALDEntryParser:
                 self.ConvertBlock(block)
             head = self._bsOut.new_tag("head")
             meta = self._bsOut.new_tag("meta")
+            js = self._bsOut.new_tag("script")
+            js['src'] = entryJS.replace('\\', '/')
             linkInterfaceCSS = self._bsOut.new_tag("link")
             linkOxfordCSS = self._bsOut.new_tag("link")
             linkInterfaceCSS['rel'] = 'stylesheet'
@@ -718,6 +753,7 @@ class OALDEntryParser:
             head.append(linkInterfaceCSS)
             head.append(linkOxfordCSS)
             self._bsOut.body.insert_before(head)
+            self._bsOut.body.append(js)
             if prettyOutput:
                 text = str(self._bsOut.prettify())
             else:
@@ -733,6 +769,13 @@ class OALDEntryParser:
 curDir = os.path.dirname(os.path.abspath(__file__))
 copyfile(curDir + "\\" + interfaceCSS, MakeValidPath(outputDir + "\\" + interfaceCSS))
 copyfile(curDir + "\\" + oxfordCSS, MakeValidPath(outputDir + "\\" + oxfordCSS))
+copyfile(curDir + "\\" + entryJS, MakeValidPath(outputDir + "\\" + entryJS))
+try:
+    shutil.rmtree(outputDir + "\\images\\", True)
+    shutil.copytree(curDir + "\\images\\", outputDir + "\\images\\")
+except:
+    pass
+    
 
 fileCount = 0
 if not os.path.exists(outputDir):
