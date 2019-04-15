@@ -32,6 +32,7 @@ entryJS = r'scripts\entry.js'
 prettyOutput = True
 debugPrintMsg = False
 addMsgLogFile = True
+parseOnlyNoOutput = False
 
 desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
 customDir = desktop + "\\OALD9\\"
@@ -53,8 +54,12 @@ if config.has_option('Parser', 'debugPrintMsg'):
 if config.has_option('Parser', 'addMsgLogFile'):
     value = config['Parser']['addMsgLogFile'].lower()
     addMsgLogFile = value in ['true', '1']
+if config.has_option('Parser', 'parseOnlyNoOutput'):
+    value = config['Parser']['parseOnlyNoOutput'].lower()
+    parseOnlyNoOutput = value in ['true', '1']
 
 globalImgList = set()
+globalSoundFileList = set()
 
 def MakeValidPath(path):
     dir = os.path.dirname(path)
@@ -72,7 +77,7 @@ def AddLog(text):
     if addMsgLogFile:
         try:
             with open(logFile, "a") as file:
-                file.write(text + "\r\n")
+                file.write(text + "\n")
         except:
             pass
 
@@ -244,7 +249,7 @@ class OALDEntryParser:
         try:
             text = re.sub(r'\\([@gs\-:\^`+_~\'\.])(.)', lambda mo: self._ReplaceSpecialSymbol(mo), text)
         except Exception as e:
-            AddLog(f"failed to replace special symbol in '{curFileName}'\r\n\t{traceback.format_exc()}")
+            AddLog(f"failed to replace special symbol in '{curFileName}'\n\t{traceback.format_exc()}")
         
         # decode unicode text "\uXXXX"
         with warnings.catch_warnings(record=True) as w:
@@ -252,7 +257,7 @@ class OALDEntryParser:
             warnings.simplefilter("always")
             text = text.encode().decode('unicode-escape')
             if len(w):
-                AddLog(f"failed to replace unicode in '{curFileName}'\r\n\t{str(w[-1].message)}")
+                AddLog(f"failed to replace unicode in '{curFileName}'\n\t{str(w[-1].message)}")
         return text
 
     def _ParseConvertElem(self, elem, tagName, attrs = ['geo','heading','ox3000']):
@@ -314,11 +319,14 @@ class OALDEntryParser:
             elif child.name == 'lg:sound':
                 soundFileTag = child.find('lg:sound_file')
                 if soundFileTag:
-                    # TODO
-                    soundFileTag.decompose()
-                    pass
-                else:
-                    removeChild = True
+                    src = soundFileTag.string
+                    test = r'wbx://oup_en-dic/'
+                    #if src[0:len(test)] != test:
+                    #    AddLog(f'unrecognized sound file {src}')
+                    src = src[len(test):]
+                    globalSoundFileList.add(src)
+                    #print(soundFileTag.string)
+                removeChild = True
             elif child.name == 'sn-gs':
                 pass
             elif child.name == 'sn-g':
@@ -524,7 +532,7 @@ class OALDEntryParser:
                 pass
             elif child.name == 'pnc_heading':
                 # verb forms heading
-                #print(f"{str(elem)}\r\n--\r\n")
+                #print(f"{str(elem)}\n--\n")
                 if elem['class'] == 'body':
                     removeChild = True
                 else:
@@ -622,7 +630,7 @@ class OALDEntryParser:
                         collapseElem = collapseElemNew
                         unbox.wrap(collapseElem)
                     else:
-                        AddLog(f"failed to find body for collapse in block {self._curBlockNum}\r\n{str(collapseElem)}")
+                        AddLog(f"failed to find body for collapse in block {self._curBlockNum}\n{str(collapseElem)}")
                     collapseElemCopy = copy.copy(collapseElem)
                     headingElem = self._bsOut.new_tag('heading')
                     headingElem.string = collapseElemCopy['title']
@@ -780,6 +788,10 @@ class OALDEntryParser:
     
     def Convert(self, contents, fileOut):
         self._bsOut = BeautifulSoup(contents, inputParser)
+        if parseOnlyNoOutput:
+            for block in self._bsOut.findAll("lg:block"):
+                self.ConvertBlock(block)
+            return
         with open(fileOut, mode="w", encoding="utf-8") as fOutput:
             for block in self._bsOut.findAll("lg:block"):
                 self.ConvertBlock(block)
@@ -805,12 +817,7 @@ class OALDEntryParser:
                 text = str(self._bsOut.prettify())
             else:
                 text = str(self._bsOut)
-            #fOutput.write(str(self._bsOut))
-            #text = self._EscapeSpecialText(text)
             # remove the redundant number after each list entry
-            #rep = re.compile(r'sn-g">\s*(\d+)')
-            #text = rep.sub(r'sn-g">', text)
-            #rep = re.compile(r'(sn-g"[^>*]>)\s*(\d+)')
             text = re.sub(r'(sn-g"[^>]*>)\s*(\d+)', r'\1', text)
             fOutput.write(text)
 
@@ -829,14 +836,23 @@ for file in fList:
     with open(file) as fInput:
         fileCount += 1
         curFileName = os.path.basename(file)
-        os.system(f"title Parsing {curFileName} ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}%")
+        os.system(f"title Parsing ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}% {curFileName}")
         curInputFile = file
         #print(f'File {fileCount}: {file}')
-        contents = fInput.read()
+        try:
+            contents = fInput.read()
+        except Exception as e:
+            AddLog(f"failed to read file {curFileName} :\n\t{traceback.format_exc()}")
+            continue
         parser = OALDEntryParser()
         fileOut = outputDir + "\\" + curFileName + ".html"
         contents = parser._EscapeSpecialText(contents)
         parser.Convert(contents, fileOut)
+
+if len(globalSoundFileList) > 0:
+    with open(customDir + 'soundfile.txt', mode="w") as fSoundFileList:
+        for soundFile in globalSoundFileList:
+            fSoundFileList.write(soundFile + '\n')
 
 urlbase = 'https://www.oxfordlearnersdictionaries.com/media/english/fullsize/'
 imgdir = customDir + 'fullsize_download\\'
@@ -850,18 +866,18 @@ if len(globalImgList) > 0:
         imgfpath = imgdir + imgfname + '.jpg'
         if os.path.isfile(imgfpath):
             continue
-        print(url)
+        print("img " + url)
         #img_data = requests.get(url, allow_redirects=True).content
         #with open(imgfpath, 'wb') as handler:
         #    handler.write(img_data)
         try:
             urllib.request.urlretrieve(url, imgfpath)
         except:
-            print("Failed!")
+            AddLog(f"Failed to download {url}")
         time.sleep(1)
 
 try:
     copy_tree(curDir + "\\images\\", outputDir + "\\images\\")
     copy_tree(imgdir, outputDir + "\\images\\fullsize\\")
 except Exception as e:
-    AddLog(f"failed to copy files:\r\n\t{traceback.format_exc()}")
+    AddLog(f"failed to copy files:\n\t{traceback.format_exc()}")
