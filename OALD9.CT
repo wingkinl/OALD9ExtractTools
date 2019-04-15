@@ -180,6 +180,12 @@ popad
 // get the entry now
 call OALD9.exe+274B0
 
+push [html_str]
+call kernel32.lstrlenA // stdcall, no cleanup
+mov [html_len], eax
+test eax, eax
+je Cleanup
+
 mov eax, [nextEntryID]
 mov edx, [baseEntryID]
 sub eax, edx
@@ -209,10 +215,6 @@ push 0
 push 0
 push [hOutputFile]
 call kernel32.SetFilePointer
-
-push [html_str]
-call kernel32.lstrlenA // stdcall, no cleanup
-mov [html_len], eax
 
 push 0
 push file_bytes
@@ -273,11 +275,11 @@ call OALD9.exe+274B0
   <UserdefinedSymbols>
     <SymbolEntry>
       <Name>html_str</Name>
-      <Address>065F0000</Address>
+      <Address>01FC0000</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_len</Name>
-      <Address>065F0010</Address>
+      <Address>01FC0010</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_cnt</Name>
@@ -285,23 +287,23 @@ call OALD9.exe+274B0
     </SymbolEntry>
     <SymbolEntry>
       <Name>file_bytes</Name>
-      <Address>065F0040</Address>
+      <Address>01FC0040</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_filedir</Name>
-      <Address>065F0050</Address>
+      <Address>01FC0050</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_filepath</Name>
-      <Address>065F0150</Address>
+      <Address>01FC0150</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_pathnumaddr</Name>
-      <Address>065F0350</Address>
+      <Address>01FC0350</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>html_pathnumformat</Name>
-      <Address>065F0360</Address>
+      <Address>01FC0360</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>strMem</Name>
@@ -321,15 +323,15 @@ call OALD9.exe+274B0
     </SymbolEntry>
     <SymbolEntry>
       <Name>nextEntryID</Name>
-      <Address>065F0030</Address>
+      <Address>01FC0030</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>nextEntry_filepath</Name>
-      <Address>065F0250</Address>
+      <Address>01FC0250</Address>
     </SymbolEntry>
     <SymbolEntry>
       <Name>passedInEntryIDAddr</Name>
-      <Address>065F0020</Address>
+      <Address>01FC0020</Address>
     </SymbolEntry>
   </UserdefinedSymbols>
 </CheatTable>

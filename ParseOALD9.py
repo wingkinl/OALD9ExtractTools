@@ -3,8 +3,13 @@
 
 import os
 import re
+import time
+import os.path
+#import requests
+import urllib.request
 import shutil
 from shutil import copyfile
+from distutils.dir_util import copy_tree
 import glob
 from bs4 import BeautifulSoup
 #import html5lib
@@ -48,6 +53,8 @@ if config.has_option('Parser', 'debugPrintMsg'):
 if config.has_option('Parser', 'addMsgLogFile'):
     value = config['Parser']['addMsgLogFile'].lower()
     addMsgLogFile = value in ['true', '1']
+
+globalImgList = set()
 
 def MakeValidPath(path):
     dir = os.path.dirname(path)
@@ -253,6 +260,8 @@ class OALDEntryParser:
             # preserve the attributes for styling some tags
             # geo for "blue"/"red"
             attrsDict = {}
+            if tagName == 'img':
+                attrs.append('src')
             for attr in attrs:
                 if elem.has_attr(attr):
                     attrsDict[attr] = elem[attr]
@@ -277,7 +286,16 @@ class OALDEntryParser:
             elif child.name == 'span':
                 pass
             elif (child.name == 'img'):
-                removeChild = True
+                # handles src='mbx://oup_en-dic/insects'
+                if child.has_attr('src') and child['src'][0:3] == 'mbx':
+                    newTagName = child.name
+                    src = child['src']
+                    src = src[len('mbx://oup_en-dic/'):]
+                    globalImgList.add(src)
+                    child['src'] = './images/fullsize/' + src + '.jpg'
+                    #print(curInputFile)
+                else:
+                    removeChild = True
                 #newTagName = child.name
                 #src = child['src']
                 #if src == 'skin:///xseps':
@@ -801,12 +819,6 @@ curDir = os.path.dirname(os.path.abspath(__file__))
 copyfile(curDir + "\\" + interfaceCSS, MakeValidPath(outputDir + "\\" + interfaceCSS))
 copyfile(curDir + "\\" + oxfordCSS, MakeValidPath(outputDir + "\\" + oxfordCSS))
 copyfile(curDir + "\\" + entryJS, MakeValidPath(outputDir + "\\" + entryJS))
-try:
-    shutil.rmtree(outputDir + "\\images\\", True)
-    shutil.copytree(curDir + "\\images\\", outputDir + "\\images\\")
-except:
-    pass
-    
 
 fileCount = 0
 if not os.path.exists(outputDir):
@@ -826,5 +838,30 @@ for file in fList:
         contents = parser._EscapeSpecialText(contents)
         parser.Convert(contents, fileOut)
 
+urlbase = 'https://www.oxfordlearnersdictionaries.com/media/english/fullsize/'
+imgdir = customDir + 'fullsize_download\\'
 
+if not os.path.exists(imgdir):
+    os.mkdir(imgdir)
 
+if len(globalImgList) > 0:
+    for imgfname in globalImgList:
+        url = urlbase + imgfname[0] + '/' + f'{imgfname[0:3]:_<3}' + '/' + f'{imgfname[0:5]:_<5}' + '/' + imgfname + '.jpg'
+        imgfpath = imgdir + imgfname + '.jpg'
+        if os.path.isfile(imgfpath):
+            continue
+        print(url)
+        #img_data = requests.get(url, allow_redirects=True).content
+        #with open(imgfpath, 'wb') as handler:
+        #    handler.write(img_data)
+        try:
+            urllib.request.urlretrieve(url, imgfpath)
+        except:
+            print("Failed!")
+        time.sleep(1)
+
+try:
+    copy_tree(curDir + "\\images\\", outputDir + "\\images\\")
+    copy_tree(imgdir, outputDir + "\\images\\fullsize\\")
+except Exception as e:
+    AddLog(f"failed to copy files:\r\n\t{traceback.format_exc()}")
