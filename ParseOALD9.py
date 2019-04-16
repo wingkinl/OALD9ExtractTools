@@ -33,6 +33,7 @@ prettyOutput = True
 debugPrintMsg = False
 addMsgLogFile = True
 parseOnlyNoOutput = False
+getSoundFileList = True
 
 desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
 customDir = desktop + "\\OALD9\\"
@@ -41,6 +42,7 @@ logFile = customDir + r"OALD9ParserLog.txt"
 
 config = configparser.ConfigParser()
 config.read(iniPath)
+
 if config.has_option('core', 'OALDOutDir'):
     inputDir = config['core']['OALDOutDir']
 if config.has_option('core', 'OALDFinalDir'):
@@ -57,6 +59,9 @@ if config.has_option('Parser', 'addMsgLogFile'):
 if config.has_option('Parser', 'parseOnlyNoOutput'):
     value = config['Parser']['parseOnlyNoOutput'].lower()
     parseOnlyNoOutput = value in ['true', '1']
+if config.has_option('Parser', 'getSoundFileList'):
+    value = config['Parser']['getSoundFileList'].lower()
+    getSoundFileList = value in ['true', '1']
 
 globalImgList = set()
 globalSoundFileList = set()
@@ -318,7 +323,7 @@ class OALDEntryParser:
                 continue
             elif child.name == 'lg:sound':
                 soundFileTag = child.find('lg:sound_file')
-                if soundFileTag:
+                if soundFileTag and getSoundFileList:
                     src = soundFileTag.string
                     test = r'wbx://oup_en-dic/'
                     #if src[0:len(test)] != test:
