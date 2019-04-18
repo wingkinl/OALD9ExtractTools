@@ -8,6 +8,14 @@ customDir = desktop + "\\OALD9\\"
 soundlistfile = customDir + 'soundfile.txt'
 
 soundDir = customDir + 'sound_download\\'
+downloadProgressFile = customDir + 'soundProgress.txt'
+startProgress = 0
+
+if os.path.exists(downloadProgressFile):
+    with open(downloadProgressFile) as f:
+        content = f.read()
+        if content:
+            startProgress = int(content)
 
 if not os.path.exists(soundDir):
     os.mkdir(soundDir)
@@ -24,9 +32,9 @@ UrlUSBase = r'https://www.oxfordlearnersdictionaries.com/media/english/us_pron_o
 with open(soundlistfile) as f:
     content = f.readlines()
     content = [x.strip() for x in content]
-    fileCount = 0
     totalFileCount = len(content)
-    for line in content:
+    for progress in range(startProgress, totalFileCount):
+        line = content[progress]
         sep = line.find('#')
         if sep < 0:
             print(f'cannot find # in {line}')
@@ -37,12 +45,15 @@ with open(soundlistfile) as f:
         urlbase = UrlUSBase if isUS else UrlUKBase
         url = urlbase + fpath
         soundFilePath = soundDir + fname + '.ogg'
-        fileCount += 1
+        fileCount = progress + 1
         os.system(f"title Downloading ({fileCount}/{totalFileCount}) {float(fileCount)/totalFileCount*100:.1f}% {fname}")
         if os.path.isfile(soundFilePath):
             continue
         try:
             urllib.request.urlretrieve(url, soundFilePath)
+            with open(downloadProgressFile, 'w') as f:
+                startProgress = progress
+                f.write(str(startProgress))
         except:
             print(f"Failed to download {line}")
         time.sleep(0.1)
