@@ -1,5 +1,5 @@
 # OALD9 DVD for Windows XML Parser
-# 4/9/2019
+# 4/18/2019
 
 import os
 import re
@@ -310,14 +310,29 @@ class OALDEntryParser:
                 #src = child['src']
                 #if src == 'skin:///xseps':
                 #    child['src'] = './images/entry/entry-bullet.png'
+            elif child.name == 'webtop-g':
+                newTagName = "div"
             elif child.name == 'top-g':
+                if elem.name == 'ol':
+                    # change it to webtop-g to satisfy oxford CSS
+                    # add all child until after 'pron-gs'
+                        webtopg = self._bsOut.new_tag('webtop-g')
+                        #count = len(child.contents)
+                        #for ii in range(count-1, -1, -1):
+                        #    grandchild = child.contents[ii]
+                        pos = 0
+                        while len(child.contents) and child.contents[0]:
+                            grandchild = child.contents[0]
+                            if grandchild.name == 'pron-gs':
+                                break
+                            gg = grandchild.extract()
+                            webtopg.insert(pos, gg)
+                            pos = pos + 1
+                        child.insert(0, webtopg)
                 self._ParseConvertElem(child, 'span')
                 newElem = self._bsOut.new_tag('div')
                 newElem['class'] = 'top-container'
                 childCopy = copy.copy(child)
-                # change it to webtop-g to satisfy CSS
-                #if (elem.name == 'ol'):
-                #    childCopy['class'] = 'webtop-g'
                 newElem.append(childCopy)
                 child.replace_with(newElem)
                 continue
@@ -466,7 +481,10 @@ class OALDEntryParser:
                     newElem['class'] = 'oxford3000'
                     child.insert_before(newElem)
             elif child.name == 'pos-g':
-                pass
+                #pass
+                self._ParseConvertElem(child, newTagName)
+                child.unwrap()
+                continue
             elif child.name == 'pos':
                 pass
             elif child.name == 'pron-gs':
