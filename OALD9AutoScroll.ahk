@@ -9,7 +9,6 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 
 OALDpid := 0
 OALDexe := "C:\OALD9\OALD9.exe"
-OALDOutDir := "C:\OALD9_Out\"
 urlBark := ""
 
 ; put this config.ini in your Desktop\OALD9\ folder to custom the above variables, example:
@@ -21,7 +20,6 @@ urlBark := ""
 iniPath := A_Desktop . "\OALD9\config.ini"
 
 IniRead, OALDexe, %iniPath%, core, OALDexe, %OALDexe%
-IniRead, OALDOutDir, %iniPath%, core, OALDOutDir, %OALDOutDir%
 IniRead, urlBark, %iniPath%, OALDAutoScroll, urlBark, %urlBark%
 
 checkOALDTimerOn := false
