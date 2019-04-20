@@ -1,5 +1,5 @@
 # OALD9 DVD for Windows XML Parser
-# 4/18/2019
+# 4/20/2019
 
 import os
 import re
@@ -18,6 +18,7 @@ import copy
 import configparser
 import warnings
 import traceback
+import string
 
 #inputParser = "html5lib"
 inputParser = "lxml"
@@ -29,11 +30,12 @@ interfaceCSS = r'styles\interface.css'
 # source: https://www.oxfordlearnersdictionaries.com/external/styles/oxford.css?version=1.6.51
 oxfordCSS = r'styles\oxford.css'
 entryJS = r'scripts\entry.js'
-prettyOutput = True
+prettyOutput = False
 debugPrintMsg = False
 addMsgLogFile = True
 parseOnlyNoOutput = False
-getSoundFileList = True
+getSoundFileList = False
+makeMDictFormat = True
 
 desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop')
 customDir = desktop + "\\OALD9\\"
@@ -62,6 +64,12 @@ if config.has_option('Parser', 'parseOnlyNoOutput'):
 if config.has_option('Parser', 'getSoundFileList'):
     value = config['Parser']['getSoundFileList'].lower()
     getSoundFileList = value in ['true', '1']
+if config.has_option('Parser', 'makeMDictFormat'):
+    value = config['Parser']['makeMDictFormat'].lower()
+    makeMDictFormat = value in ['true', '1']
+
+if makeMDictFormat:
+    prettyOutput = False
 
 globalImgList = set()
 globalSoundFileList = set()
@@ -88,6 +96,19 @@ def AddLog(text):
 
 
 class OALDEntryParser:
+    _css1 = interfaceCSS.replace('\\', '/')
+    _css2 = oxfordCSS.replace('\\', '/')
+    _css = f'<link href="{_css1}" rel="stylesheet" type="text/css"/>'
+    if prettyOutput:
+        _css = _css + '\n'
+    _css = _css + f'<link href="{_css2}" rel="stylesheet" type="text/css"/>'
+    if prettyOutput:
+        _css = _css + '\n'
+    _jspath = entryJS.replace('\\', '/')
+    _js = f'<script src="{_jspath}"></script>'
+    if prettyOutput:
+        _js = '\n' + _js + '\n'
+
     def __init__(self):
         self._curBlockNum = 0
     
@@ -302,7 +323,10 @@ class OALDEntryParser:
                     src = child['src']
                     src = src[len('mbx://oup_en-dic/'):]
                     globalImgList.add(src)
-                    child['src'] = './images/fullsize/' + src + '.jpg'
+                    if makeMDictFormat:
+                        child['src'] = 'file:///images/fullsize/' + src + '.jpg'
+                    else:
+                        child['src'] = './images/fullsize/' + src + '.jpg'
                     #print(curInputFile)
                 else:
                     removeChild = True
@@ -476,6 +500,19 @@ class OALDEntryParser:
                 pass
             elif child.name == 'h':
                 newTagName = "h2"
+                self._keyCount = self._keyCount + 1
+                str = ""
+                if child.string is None:
+                    for childstr in child.strings:
+                        str = str + childstr
+                else:
+                    str = child.string.strip()
+                printable = set(string.printable)
+                str = ''.join(filter(lambda x: x in printable, str))
+                if str:
+                    self._curEntryKey = str
+                else:
+                    AddLog(f"found empty key {str(child)} in block {self._curBlockNum}")
                 if child.has_attr('ox3000') and child['ox3000'] == 'y':
                     newElem = self._bsOut.new_tag('a')
                     newElem['class'] = 'oxford3000'
@@ -552,7 +589,7 @@ class OALDEntryParser:
                 removeChild = True
             elif child.name == 'collapse':
                 # verb forms heading collapse/expand
-                pass
+                attrs.append('title')
             elif child.name == 'pnc_heading':
                 # verb forms heading
                 #print(f"{str(elem)}\n--\n")
@@ -759,7 +796,10 @@ class OALDEntryParser:
 
     def _ConvertEntry(self, entry):
         #hgs = entry.findAll('h-g')
+        entry.name = 'div'
+        entry['class'] = 'entry'
         hgsCount = 0
+        self._keyCount = 0
         for nn in range(len(entry.contents)-1, -1, -1):
             child = entry.contents[nn]
             removeChild = False
@@ -785,6 +825,8 @@ class OALDEntryParser:
                 self._ParseConvertElem(child, newTagName)
         if hgsCount != 1:
             AddLog(f"Found {hgsCount} h-g in block {self._curBlockNum}")
+        if self._keyCount != 1:
+            AddLog(f"Found {self._keyCount} key(s) in block {self._curBlockNum}")
         return hgsCount == 1
         
     def ConvertBlock(self, block):
@@ -811,38 +853,31 @@ class OALDEntryParser:
     
     def Convert(self, contents, fileOut):
         self._bsOut = BeautifulSoup(contents, inputParser)
-        if parseOnlyNoOutput:
+        fmode = 'a' if makeMDictFormat else 'w'
+        with open(fileOut, mode=fmode, encoding="utf-8") as fOutput:
             for block in self._bsOut.findAll("lg:block"):
                 self.ConvertBlock(block)
-            return
-        with open(fileOut, mode="w", encoding="utf-8") as fOutput:
-            for block in self._bsOut.findAll("lg:block"):
-                self.ConvertBlock(block)
-            head = self._bsOut.new_tag("head")
-            meta = self._bsOut.new_tag("meta")
-            js = self._bsOut.new_tag("script")
-            js['src'] = entryJS.replace('\\', '/')
-            linkInterfaceCSS = self._bsOut.new_tag("link")
-            linkOxfordCSS = self._bsOut.new_tag("link")
-            linkInterfaceCSS['rel'] = 'stylesheet'
-            linkInterfaceCSS['type'] = 'text/css'
-            linkInterfaceCSS['href'] = interfaceCSS.replace('\\', '/')
-            linkOxfordCSS['rel'] = 'stylesheet'
-            linkOxfordCSS['type'] = 'text/css'
-            linkOxfordCSS['href'] = oxfordCSS.replace('\\', '/')
-            meta['charset'] = 'UTF-8'
-            head.append(meta)
-            head.append(linkInterfaceCSS)
-            head.append(linkOxfordCSS)
-            self._bsOut.body.insert_before(head)
-            self._bsOut.body.append(js)
-            if prettyOutput:
-                text = str(self._bsOut.prettify())
-            else:
-                text = str(self._bsOut)
-            # remove the redundant number after each list entry
-            text = re.sub(r'(sn-g"[^>]*>)\s*(\d+)', r'\1', text)
-            fOutput.write(text)
+                if parseOnlyNoOutput:
+                    continue
+                if len(block.contents) <= 0:
+                    continue
+                block.name = 'div'
+                block.attrs.clear()
+                block['id'] = 'entryContent'
+                block['class'] = 'oald'
+                if prettyOutput:
+                    text = str(block.prettify())
+                else:
+                    text = str(block)
+                if makeMDictFormat:
+                    fOutput.write(self._curEntryKey + '\n')
+                fOutput.write(self._css)
+                # remove the redundant number after each list entry
+                text = re.sub(r'(sn-g"[^>]*>)\s*(\d+)', r'\1', text)
+                fOutput.write(text)
+                fOutput.write(self._js)
+                if makeMDictFormat:
+                    fOutput.write('\n</>\n')
 
 
 curDir = os.path.dirname(os.path.abspath(__file__))
@@ -855,6 +890,10 @@ if not os.path.exists(outputDir):
     os.mkdir(outputDir)
 fList = glob.glob(inputDir + '/*.xml')
 totalFileCount = len(fList)
+if makeMDictFormat:
+    fileOut = outputDir + "\\OALD9.txt"
+    if os.path.exists(fileOut):
+        os.remove(fileOut) 
 for file in fList:
     with open(file) as fInput:
         fileCount += 1
@@ -868,7 +907,8 @@ for file in fList:
             AddLog(f"failed to read file {curFileName} :\n\t{traceback.format_exc()}")
             continue
         parser = OALDEntryParser()
-        fileOut = outputDir + "\\" + curFileName + ".html"
+        if not makeMDictFormat:
+            fileOut = outputDir + "\\" + curFileName + ".html"
         contents = parser._EscapeSpecialText(contents)
         parser.Convert(contents, fileOut)
 
